@@ -3,11 +3,12 @@ package com.github.thedeathlycow.resettablearenas;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.io.*;
-import java.util.ArrayList;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -17,8 +18,10 @@ public class ChunkScheduler extends BukkitRunnable {
     private final Set<ArenaChunk> chunks;
     private final Gson gson;
     private final String filename;
+    private final ResettableArenas plugin;
 
     public ChunkScheduler(ResettableArenas plugin) {
+        this.plugin = plugin;
         chunks = new HashSet<>();
         gson = new GsonBuilder()
                 .setPrettyPrinting()
@@ -31,7 +34,8 @@ public class ChunkScheduler extends BukkitRunnable {
     public void load() {
 
         try (FileReader reader = new FileReader(filename)) {
-            chunks.addAll(gson.fromJson(reader, new TypeToken<List<ArenaChunk>>(){}.getType()));
+            chunks.addAll(gson.fromJson(reader, new TypeToken<List<ArenaChunk>>() {
+            }.getType()));
         } catch (IOException notFound) {
             try {
                 File file = new File(filename);

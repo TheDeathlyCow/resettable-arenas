@@ -20,7 +20,9 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,55 +31,108 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * An arena chunk is a chunk that is part of an arena. Each arena chunk may
+ * only belong to one arena, and only one arena chunk may exist per world
+ * chunk. Contains pointer variables to the chunk and arena, as well as
+ * the schematic file for the blockdata of this chunk.
+ */
 public class ArenaChunk {
 
+    /**
+     * The world chunk of this arena chunk.
+     */
+    @Nonnull
     private final Chunk CHUNK;
+    /**
+     * The schematic file of this chunks blockdata.
+     */
+    @Nonnull
     private final File SCHEMATIC;
+    /**
+     * The resettable arenas plugin.
+     */
+    @Nonnull
     private final ResettableArenas PLUGIN;
+    /**
+     * The arena this chunk is listening to.
+     */
+    @Nullable
     private Arena arena;
+    /**
+     * The load version of this chunk.
+     */
     private int loadVersion = 0;
+    /**
+     * The save version of this chunk.
+     */
     private int saveVersion = 0;
-    private transient boolean setLoadThisSession = false;
-    private transient boolean setSaveThisSession = false;
 
-    public ArenaChunk(ResettableArenas plugin, Chunk chunk) {
-        this(plugin, null, chunk);
-    }
-
-    public ArenaChunk(ResettableArenas plugin, Arena arena, Chunk chunk) {
+    /**
+     * Creates a new arena chunk.
+     *
+     * @param plugin Plugin reference for this chunk.
+     * @param arena Arena this chunk belongs to. May be null.
+     * @param chunk The world chunk this arena chunk belongs to.
+     */
+    public ArenaChunk(@Nonnull ResettableArenas plugin, @Nullable Arena arena, @Nonnull Chunk chunk) {
         this.CHUNK = chunk;
         this.arena = arena;
         this.PLUGIN = plugin;
-        String schematicFile = String.format("/schematics/ArenaChunk.%d.%d.schem", chunk.getX(), chunk.getZ());
+        String schematicFile = String.format("/schematics/region.%d.%d/ArenaChunk.%d.%d.schem",
+                chunk.getX()/32, chunk.getZ()/32,
+                chunk.getX(), chunk.getZ());
         this.SCHEMATIC = new File(plugin.getDataFolder().getAbsolutePath() + schematicFile);
         SCHEMATIC.getParentFile().mkdirs();
-//        try {
-//            SCHEMATIC.createNewFile();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
     }
 
+    /**
+     * Updates the arena of this arena chunk.
+     * @param arena New arena of this chunk.
+     */
     public void setArena(@Nullable Arena arena) {
         this.arena = arena;
     }
 
+    /**
+     * Runs periodically to check if this arena chunk should be reloaded, saved,
+     * or deleted.
+     */
     public void tick() {
+        if (!PLUGIN.ARENA_REGISTRY.getArenas().contains(this.arena)) {
+            delete();
+        }
         if (arena != null && CHUNK.isLoaded()) {
             if (this.saveVersion != arena.getSaveVersion()) {
                 this.save();
             }
             if (this.loadVersion != arena.getLoadVersion()) {
+                this.loadVersion = arena.getLoadVersion(); // immediately update load version, so no spam if error occurs
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        load();
+                    }
+                }.runTaskLater(this.PLUGIN, ThreadLocalRandom.current().nextInt(40) + 1);
+
                 this.load();
             }
-        } else {
-            System.out.println("Failed to load or save chunk " + this.toString());
-            System.out.println(arena);
-            System.out.println(CHUNK.isLoaded());
         }
     }
 
+    /**
+     * Marks this chunk as unowned and deletes block data associated with it.
+     */
+    private void delete() {
+        arena = null;
+        SCHEMATIC.delete();
+    }
+
+    /**
+     * Saves the current state of the chunk to a schematic.
+     */
     private void save() {
         final BlockVector3 min = BlockVector3.at(CHUNK.getX()*16, 0, CHUNK.getZ()*16);
         final BlockVector3 max = BlockVector3.at(CHUNK.getX()*16 + 16, 255, CHUNK.getZ()*16 + 16);
@@ -86,7 +141,7 @@ public class ArenaChunk {
         CuboidRegion region = new CuboidRegion(adaptedWorld, min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
 
-        EditSession session = WorldEdit.getInstance().newEditSessionBuilder().world(adaptedWorld).build();
+        EditSession session = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1);
         ForwardExtentCopy copy = new ForwardExtentCopy(session, region, clipboard, region.getMinimumPoint());
         copy.setCopyingEntities(true);
         try {
@@ -108,8 +163,13 @@ public class ArenaChunk {
         this.saveVersion = arena.getSaveVersion();
     }
 
+    /**
+     * Loads this arena chunk from its last saved state, if that state exists.
+     */
     private void load() {
-        this.loadVersion = arena.getLoadVersion(); // immediately update load version, so no spam if error occurs
+        if (!SCHEMATIC.exists()) {
+            return;
+        }
         // load clipboard
         Clipboard clipboard;
         ClipboardFormat clipboardFormat = ClipboardFormats.findByFile(this.SCHEMATIC);
@@ -126,7 +186,7 @@ public class ArenaChunk {
         clearChunkEntities();
         // paste clipboard
         com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(this.CHUNK.getWorld());
-        EditSession editSession = WorldEdit.getInstance().newEditSessionBuilder().world(adaptedWorld).build();
+        EditSession editSession = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1);
         Operation operation = new ClipboardHolder(clipboard).createPaste(editSession)
                 .to(BlockVector3.at(CHUNK.getX() * 16, 0, CHUNK.getZ() * 16))
                 .ignoreAirBlocks(false).build();
@@ -139,6 +199,9 @@ public class ArenaChunk {
         editSession.close();
     }
 
+    /**
+     * Removes the entities from this chunk.
+     */
     private void clearChunkEntities() {
         for (Entity entity : CHUNK.getEntities()) {
             if (!(entity instanceof Player)) {
@@ -180,19 +243,45 @@ public class ArenaChunk {
         PLUGIN.getServer().broadcastMessage(ChatColor.RED + "[ResettableArenas] ERROR: " + message);
     }
 
+    /**
+     * Handles JSON serialization and deserialization for arena chunks.
+     */
     public static class Serializer implements JsonSerializer<ArenaChunk>, JsonDeserializer<ArenaChunk> {
 
+        /**
+         * Plugin reference.
+         */
         private final ResettableArenas plugin;
-        public final Gson blockGson;
 
+        /**
+         * Constructs an arena chunk serializer with a plugin reference.
+         *
+         * @param plugin Resettable arenas plugin.
+         */
         public Serializer(ResettableArenas plugin) {
             this.plugin = plugin;
-            this.blockGson = new GsonBuilder()
-                    .registerTypeAdapter(ArenaChunk.class, this)
-                    .disableHtmlEscaping()
-                    .create();
         }
 
+        /**
+         * Converts a JSON object to an arena chunk.
+         * JSON objects of ArenaChunks must have the following format:
+         * <pre>
+         *     {
+         *         "chunkX": int,
+         *         "chunkZ": int,
+         *         "world": string,
+         *         "arena": string,
+         *         "loadVersion": int,
+         *         "saveVersion": int
+         *     }
+         * </pre>
+         *
+         * @param json
+         * @param typeOfT
+         * @param context
+         * @return
+         * @throws JsonParseException
+         */
         @Override
         public ArenaChunk deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
             JsonObject jsonObject = json.getAsJsonObject();

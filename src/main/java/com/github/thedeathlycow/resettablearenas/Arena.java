@@ -33,8 +33,9 @@ public class Arena {
      *
      * @param name The name of the arena. The name must be at most 13 characters
      *             and match the regular expression ^[a-zA-Z0-9_\-+]{1,13}$
+     * @throws IllegalArgumentException Thrown if the name is invalid.
      */
-    public Arena(String name) {
+    public Arena(String name) throws IllegalArgumentException {
         if (Pattern.matches("^[a-zA-Z0-9_\\-+]{1,13}$", name)) {
             this.NAME = name;
         } else {

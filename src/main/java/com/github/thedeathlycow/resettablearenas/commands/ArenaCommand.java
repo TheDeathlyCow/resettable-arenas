@@ -1,6 +1,5 @@
 package com.github.thedeathlycow.resettablearenas.commands;
 
-import com.github.thedeathlycow.resettablearenas.ResettableArenas;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -37,7 +36,8 @@ public class ArenaCommand implements CommandExecutor {
     private enum SubCommands {
         DEFINE(new ArenaDefine()),
         SAVE(new ArenaSave()),
-        LOAD(new ArenaLoad());
+        LOAD(new ArenaLoad()),
+        LIST(new ArenaList());
 
         private final CommandExecutor executor;
 
@@ -49,6 +49,7 @@ public class ArenaCommand implements CommandExecutor {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ChatColor.RED + "=== Help for ResettableArenas ===");
         sender.sendMessage(ChatColor.RED + " /arena help - Brings up this message.");
+        sender.sendMessage(ChatColor.RED + " /arena list - List all of the arenas.");
         sender.sendMessage(ChatColor.RED + " /arena define <name: string> <from: x z> <to: x z> - Defines an arena with the specified name between two (x, z) coordinates.");
         sender.sendMessage(ChatColor.RED + " /arena save <arena_name: string> - Saves the current state chunks of the arena when they are loaded.");
         sender.sendMessage(ChatColor.RED + " /arena load <arena_name: string> - Loads the chunks from memory to their last saved version.");

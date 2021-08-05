@@ -3,6 +3,7 @@ package com.github.thedeathlycow.resettablearenas.commands;
 import com.github.thedeathlycow.resettablearenas.Arena;
 import com.github.thedeathlycow.resettablearenas.ArenaChunk;
 import com.github.thedeathlycow.resettablearenas.ResettableArenas;
+import com.sk89q.worldedit.math.Vector2;
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -27,7 +28,6 @@ public class ArenaDefine implements CommandExecutor {
             arena = new Arena(name);
         } catch (IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
             player.sendMessage(ChatColor.RED + "Error executing command: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
         plugin.ARENA_REGISTRY.addArena(arena);
@@ -44,7 +44,7 @@ public class ArenaDefine implements CommandExecutor {
         return true;
     }
 
-    private boolean defineChunks(Arena arena, String[] args, Player player) {
+    public boolean defineChunks(Arena arena, String[] args, Player player) {
         final int fromX = Integer.parseInt(args[2]);
         final int fromZ = Integer.parseInt(args[3]);
         final int toX = Integer.parseInt(args[4]);
@@ -58,8 +58,8 @@ public class ArenaDefine implements CommandExecutor {
 
         final int dx = 16 * getDir(fromX, toX);
         final int dz = 16 * getDir(fromZ, toZ);
-        for (int x = Math.min(fromX, toX); x < Math.max(fromX, toX); x += dx) {
-            for (int z = Math.min(fromZ, toZ); z < Math.max(fromZ, toZ); z += dz) {
+        for (int x = fromX; x < toX; x += dx) {
+            for (int z = fromZ; z < toZ; z += dz) {
                 Chunk chunk = executedIn.getChunkAt(x/16, z/16);
                 ArenaChunk arenaChunk = new ArenaChunk(plugin, arena, chunk);
                 plugin.CHUNK_SCHEDULER.addChunk(arenaChunk);

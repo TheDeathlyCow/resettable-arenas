@@ -1,12 +1,15 @@
 name: Resettable-Arenas
 version: ${project.version}
 main: com.github.thedeathlycow.resettablearenas.ResettableArenas
-api-version: 1.16
-authors: [ TheDeathlyCow ]
+api-version: 1.17
+authors: [TheDeathlyCow]
 description: Allows arenas to be reset.
+depend: [WorldEdit]
+
 
 commands:
   arena:
     description: Define, save, and load arenas.
-    usage: /arena <define | save | load>
+    usage: /arena <help | define | list | save | load> <params>
     permission: arenas.permission
+    permission-message: §3ResettableArenas §f- You do not have permission to do that.
