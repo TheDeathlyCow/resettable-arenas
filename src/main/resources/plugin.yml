@@ -1,0 +1,12 @@
+name: Resettable-Arenas
+version: ${project.version}
+main: com.github.thedeathlycow.resettablearenas.ResettableArenas
+api-version: 1.16
+authors: [ TheDeathlyCow ]
+description: Allows arenas to be reset.
+
+commands:
+  arena:
+    description: Define, save, and load arenas.
+    usage: /arena <define | save | load>
+    permission: arenas.permission
