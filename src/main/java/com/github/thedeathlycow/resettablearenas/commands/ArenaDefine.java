@@ -45,10 +45,10 @@ public class ArenaDefine implements CommandExecutor {
     }
 
     public boolean defineChunks(Arena arena, String[] args, Player player) {
-        final int fromX = Integer.parseInt(args[2]);
-        final int fromZ = Integer.parseInt(args[3]);
-        final int toX = Integer.parseInt(args[4]);
-        final int toZ = Integer.parseInt(args[5]);
+        final int fromX = Integer.parseInt(args[2]) / 16;
+        final int fromZ = Integer.parseInt(args[3]) / 16;
+        final int toX = Integer.parseInt(args[4]) / 16;
+        final int toZ = Integer.parseInt(args[5]) / 16;
 
         World executedIn = player.getLocation().getWorld();
         if (executedIn == null) {
@@ -56,19 +56,19 @@ public class ArenaDefine implements CommandExecutor {
             return false;
         }
 
-        final int dx = 16 * getDir(fromX, toX);
-        final int dz = 16 * getDir(fromZ, toZ);
-        for (int x = fromX; x < toX; x += dx) {
-            for (int z = fromZ; z < toZ; z += dz) {
-                Chunk chunk = executedIn.getChunkAt(x/16, z/16);
+        final int dx = getDir(fromX, toX);
+        final int dz = getDir(fromZ, toZ);
+        for (int x = fromX ; dx > 0 ? x <= toX : x >= toX; x += dx) {
+            for (int z = fromZ; dz > 0 ? z <= toZ : z >= toZ; z += dz) {
+                Chunk chunk = executedIn.getChunkAt(x, z);
                 ArenaChunk arenaChunk = new ArenaChunk(plugin, arena, chunk);
                 plugin.CHUNK_SCHEDULER.addChunk(arenaChunk);
+                System.out.printf("Defined chunk %d %d to be in arena %s%n", x, z, arena.getName());
             }
         }
 
         return true;
     }
-
 
     private int getDir(int from, int to) {
         return Math.abs(to - from) / (to - from);

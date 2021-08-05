@@ -102,6 +102,7 @@ public class ArenaChunk {
      */
     public void tick() {
         if (!PLUGIN.ARENA_REGISTRY.getArenas().contains(this.arena)) {
+            System.out.println("Deleting " + this.toString());
             delete();
         }
         if (arena != null && CHUNK.isLoaded()) {
