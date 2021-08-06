@@ -1,14 +1,15 @@
 package com.github.thedeathlycow.resettablearenas.commands;
 
 import com.github.thedeathlycow.resettablearenas.Arena;
-import com.github.thedeathlycow.resettablearenas.ArenaChunk;
 import com.github.thedeathlycow.resettablearenas.ResettableArenas;
-import com.sk89q.worldedit.math.Vector2;
+import com.sk89q.worldedit.antlr4.runtime.misc.Pair;
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Scoreboard;
 
 public class ArenaDefine implements CommandExecutor {
 
@@ -55,22 +56,22 @@ public class ArenaDefine implements CommandExecutor {
             player.sendMessage(ChatColor.RED + "Error locating world!");
             return false;
         }
-
-        final int dx = getDir(fromX, toX);
-        final int dz = getDir(fromZ, toZ);
-        for (int x = fromX ; dx > 0 ? x <= toX : x >= toX; x += dx) {
-            for (int z = fromZ; dz > 0 ? z <= toZ : z >= toZ; z += dz) {
-                Chunk chunk = executedIn.getChunkAt(x, z);
-                ArenaChunk arenaChunk = new ArenaChunk(plugin, arena, chunk);
-                plugin.CHUNK_SCHEDULER.addChunk(arenaChunk);
-                System.out.printf("Defined chunk %d %d to be in arena %s%n", x, z, arena.getName());
-            }
-        }
+        Definer definer = new Definer(plugin, arena, executedIn, new Pair<>(fromX, fromZ), new Pair<>(toX, toZ));
+        definer.runTaskLater(plugin, 5);
+        defineScoreboard(arena);
 
         return true;
     }
 
-    private int getDir(int from, int to) {
-        return Math.abs(to - from) / (to - from);
+    private void defineScoreboard(Arena arena) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        String load = "ld." + arena.getName();
+        String save = "sv." + arena.getName();
+        scoreboard.registerNewObjective(load, "dummy", load);
+        scoreboard.registerNewObjective(save, "dummy", save);
+
+        scoreboard.getObjective(load).getScore("loadNum").setScore(arena.getLoadVersion());
+        scoreboard.getObjective(load).getScore("saveNum").setScore(arena.getSaveVersion());
+
     }
 }

@@ -25,6 +25,7 @@ public class ArenaRegistry {
     }
 
     public void load() {
+        arenas.clear();
         try (FileReader reader = new FileReader(filename)) {
             arenas.addAll(gson.fromJson(reader, new TypeToken<List<Arena>>(){}.getType()));
         } catch (IOException notFound) {
@@ -52,11 +53,11 @@ public class ArenaRegistry {
     }
 
     public void addArena(Arena arena) {
-        for (Arena a : arenas) {
-            if (a.getName().equals(arena.getName())) {
-                return;
-            }
-        }
+//        for (Arena a : arenas) {
+//            if (a.getName().equals(arena.getName())) {
+//                return;
+//            }
+//        }
         arenas.add(arena);
     }
 
@@ -68,6 +69,10 @@ public class ArenaRegistry {
             }
         }
         return null;
+    }
+
+    public boolean deleteArena(Arena toDelete) {
+        return arenas.remove(toDelete);
     }
 
     public Set<Arena> getArenas() {

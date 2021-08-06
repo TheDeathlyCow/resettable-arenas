@@ -14,13 +14,12 @@ import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.session.ClipboardHolder;
-import org.bukkit.ChatColor;
-import org.bukkit.Chunk;
-import org.bukkit.Location;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Scoreboard;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,9 +28,11 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 /**
  * An arena chunk is a chunk that is part of an arena. Each arena chunk may
@@ -45,7 +46,7 @@ public class ArenaChunk {
      * The world chunk of this arena chunk.
      */
     @Nonnull
-    private final Chunk CHUNK;
+    private final ChunkWrapper CHUNK;
     /**
      * The schematic file of this chunks blockdata.
      */
@@ -78,7 +79,7 @@ public class ArenaChunk {
      * @param chunk The world chunk this arena chunk belongs to.
      */
     public ArenaChunk(@Nonnull ResettableArenas plugin, @Nullable Arena arena, @Nonnull Chunk chunk) {
-        this.CHUNK = chunk;
+        this.CHUNK = new ChunkWrapper(chunk);
         this.arena = arena;
         this.PLUGIN = plugin;
         String schematicFile = String.format("/schematics/region.%d.%d/ArenaChunk.%d.%d.schem",
@@ -105,22 +106,43 @@ public class ArenaChunk {
             System.out.println("Deleting " + this.toString());
             delete();
         }
-        if (arena != null && CHUNK.isLoaded()) {
+        if (arena != null && CHUNK.getChunk().isLoaded()) {
+
+            checkPlayers();
+
             if (this.saveVersion != arena.getSaveVersion()) {
                 this.save();
             }
             if (this.loadVersion != arena.getLoadVersion()) {
                 this.loadVersion = arena.getLoadVersion(); // immediately update load version, so no spam if error occurs
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        load();
-                    }
-                }.runTaskLater(this.PLUGIN, ThreadLocalRandom.current().nextInt(40) + 1);
-
                 this.load();
             }
         }
+    }
+
+    private void checkPlayers() {
+        List<Player> playersInChunk = CHUNK.getChunk().getWorld().getPlayers().stream()
+                .filter((player -> {
+                    Location playerLocation = player.getLocation();
+                    int playerX = playerLocation.getBlockX() / 16;
+                    int playerZ = playerLocation.getBlockZ() / 16;
+                    return playerX == CHUNK.getChunk().getX() && playerZ == CHUNK.getChunk().getZ();
+                }))
+                .collect(Collectors.toList());
+
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+
+        playersInChunk.forEach((player) -> {
+            Location spawn = player.getLocation().getWorld().getSpawnLocation();
+            int loadNum = scoreboard.getObjective("ld." + arena.getName())
+                    .getScore(player.getName()).getScore();
+            if (loadNum != arena.getLoadVersion()) {
+                player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "This arena has been reset! You have been sent back to spawn.");
+                player.sendMessage(ChatColor.GOLD + "" + ChatColor.ITALIC + "(This usually happens if you left a game and came back after the game finished.)");
+                player.teleport(spawn);
+                player.playSound(spawn, Sound.BLOCK_NOTE_BLOCK_DIDGERIDOO, 1, 0.8f);
+            }
+        });
     }
 
     /**
@@ -135,10 +157,11 @@ public class ArenaChunk {
      * Saves the current state of the chunk to a schematic.
      */
     private void save() {
-        final BlockVector3 min = BlockVector3.at(CHUNK.getX()*16, 0, CHUNK.getZ()*16);
-        final BlockVector3 max = BlockVector3.at(CHUNK.getX()*16 + 16, 255, CHUNK.getZ()*16 + 16);
+        Chunk chunk = CHUNK.getChunk();
+        final BlockVector3 min = BlockVector3.at(chunk.getX()*16, 0, chunk.getZ()*16);
+        final BlockVector3 max = BlockVector3.at(chunk.getX()*16 + 16, 255, chunk.getZ()*16 + 16);
 
-        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(this.CHUNK.getWorld());
+        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(chunk.getWorld());
         CuboidRegion region = new CuboidRegion(adaptedWorld, min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
 
@@ -168,6 +191,7 @@ public class ArenaChunk {
      * Loads this arena chunk from its last saved state, if that state exists.
      */
     private void load() {
+        this.loadVersion = arena.getLoadVersion(); // stop trying to load if this load fails
         if (!SCHEMATIC.exists()) {
             return;
         }
@@ -186,10 +210,11 @@ public class ArenaChunk {
         // remove entities
         clearChunkEntities();
         // paste clipboard
-        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(this.CHUNK.getWorld());
+        Chunk chunk = CHUNK.getChunk();
+        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(chunk.getWorld());
         EditSession editSession = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1);
         Operation operation = new ClipboardHolder(clipboard).createPaste(editSession)
-                .to(BlockVector3.at(CHUNK.getX() * 16, 0, CHUNK.getZ() * 16))
+                .to(BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16))
                 .ignoreAirBlocks(false).build();
         try {
             Operations.complete(operation);
@@ -204,7 +229,7 @@ public class ArenaChunk {
      * Removes the entities from this chunk.
      */
     private void clearChunkEntities() {
-        for (Entity entity : CHUNK.getEntities()) {
+        for (Entity entity : CHUNK.getChunk().getEntities()) {
             if (!(entity instanceof Player)) {
                 Location location = entity.getLocation();
                 entity.teleport(location.add(0, -1000, 0));
@@ -227,7 +252,7 @@ public class ArenaChunk {
 
     @Override
     public String toString() {
-        return "ArenaChunk:{chunk={x=" + this.CHUNK.getX() + ",z=" + this.CHUNK.getZ() + "}"
+        return "ArenaChunk:{chunk={x=" + CHUNK.getChunk().getX() + ",z=" + CHUNK.getChunk().getZ() + "}"
                 + ",arena=" + this.arena.getName() + "}";
     }
 
@@ -309,10 +334,10 @@ public class ArenaChunk {
         @Override
         public JsonElement serialize(ArenaChunk src, Type typeOfSrc, JsonSerializationContext context) {
             JsonObject jsonObject = new JsonObject();
-
-            jsonObject.addProperty("chunkX", src.CHUNK.getX());
-            jsonObject.addProperty("chunkZ", src.CHUNK.getZ());
-            jsonObject.addProperty("world", src.CHUNK.getWorld().getName());
+            Chunk chunk = src.CHUNK.getChunk();
+            jsonObject.addProperty("chunkX", chunk.getX());
+            jsonObject.addProperty("chunkZ", chunk.getZ());
+            jsonObject.addProperty("world", chunk.getWorld().getName());
             jsonObject.addProperty("arena", src.arena.getName());
             jsonObject.addProperty("loadVersion", src.loadVersion);
             jsonObject.addProperty("saveVersion", src.saveVersion);

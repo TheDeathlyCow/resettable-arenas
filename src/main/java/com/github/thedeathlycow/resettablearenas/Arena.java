@@ -1,5 +1,9 @@
 package com.github.thedeathlycow.resettablearenas;
 
+import org.bukkit.Bukkit;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Scoreboard;
+
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -73,6 +77,7 @@ public class Arena {
      */
     public void save() {
         saveVersion++;
+        updateScoreboard("sv." + getName(), "saveNum", saveVersion);
     }
 
     /**
@@ -84,6 +89,24 @@ public class Arena {
      */
     public void load() {
         loadVersion++;
+        updateScoreboard("ld." + getName(), "loadNum", loadVersion);
+    }
+
+    public void checkScoreboard() {
+        saveVersion = getScore("sv." + getName(), "saveNum");
+        loadVersion = getScore("ld." + getName(), "loadNum");
+    }
+
+    private int getScore(String objectiveName, String key) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Objective objective = scoreboard.getObjective(objectiveName);
+        return objective.getScore(key).getScore();
+    }
+
+    private void updateScoreboard(String objectiveName, String key, int value) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Objective objective = scoreboard.getObjective(objectiveName);
+        objective.getScore(key).setScore(value);
     }
 
     //* Getters *//

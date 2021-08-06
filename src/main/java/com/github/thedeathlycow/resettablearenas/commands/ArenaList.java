@@ -20,6 +20,11 @@ public class ArenaList implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
+        if (plugin.ARENA_REGISTRY.getArenas().size() == 0) {
+            sender.sendMessage(ChatColor.RED + "There are not any arenas yet!");
+            return true;
+        }
+
         StringBuilder message = new StringBuilder();
         message.append(ChatColor.DARK_AQUA)
                 .append("Arenas:\n")
@@ -27,9 +32,9 @@ public class ArenaList implements CommandExecutor {
         for (Arena arena : plugin.ARENA_REGISTRY.getArenas()) {
             message.append(" - ")
                     .append(arena.getName())
-                    .append(" Load = ")
+                    .append(": LoadNum=")
                     .append(arena.getLoadVersion())
-                    .append(", Save = ")
+                    .append(", SaveNum=")
                     .append(arena.getSaveVersion())
                     .append("\n");
         }

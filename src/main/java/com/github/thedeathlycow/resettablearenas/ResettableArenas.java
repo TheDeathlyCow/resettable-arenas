@@ -24,7 +24,8 @@ public final class ResettableArenas extends JavaPlugin implements Listener {
         this.getCommand("arena").setExecutor(new ArenaCommand());
         ARENA_REGISTRY.load();
         CHUNK_SCHEDULER.load();
-        CHUNK_SCHEDULER.runTaskTimer(this, 1L, 20L);
+        Ticker ticker = new Ticker(this);
+        ticker.runTaskTimer(this, 1L, 20L);
     }
 
     @Override

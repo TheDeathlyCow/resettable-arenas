@@ -9,11 +9,12 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class ChunkScheduler extends BukkitRunnable {
+public class ChunkScheduler {
 
     private final Set<ArenaChunk> chunks;
     private final Gson gson;
@@ -32,7 +33,7 @@ public class ChunkScheduler extends BukkitRunnable {
     }
 
     public void load() {
-
+        chunks.clear();
         try (FileReader reader = new FileReader(filename)) {
             chunks.addAll(gson.fromJson(reader, new TypeToken<List<ArenaChunk>>() {
             }.getType()));
@@ -47,7 +48,6 @@ public class ChunkScheduler extends BukkitRunnable {
     }
 
     public void save() {
-
         try (FileWriter writer = new FileWriter(filename)) {
             String json = gson.toJson(chunks);
             writer.write(json);
@@ -56,12 +56,12 @@ public class ChunkScheduler extends BukkitRunnable {
         }
     }
 
+    public Set<ArenaChunk> getChunks() {
+        return Collections.unmodifiableSet(chunks);
+    }
+
     public void addChunk(ArenaChunk chunk) {
         chunks.add(chunk);
     }
 
-    @Override
-    public void run() {
-        chunks.forEach(ArenaChunk::tick);
-    }
 }
