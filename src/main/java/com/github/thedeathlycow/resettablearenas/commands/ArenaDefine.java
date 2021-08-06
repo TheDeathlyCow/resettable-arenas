@@ -57,7 +57,7 @@ public class ArenaDefine implements CommandExecutor {
             return false;
         }
         Definer definer = new Definer(plugin, arena, executedIn, new Pair<>(fromX, fromZ), new Pair<>(toX, toZ));
-        definer.runTaskLater(plugin, 5);
+        definer.run();
         defineScoreboard(arena);
 
         return true;
