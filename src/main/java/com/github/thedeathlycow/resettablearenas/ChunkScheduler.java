@@ -56,6 +56,10 @@ public class ChunkScheduler {
         }
     }
 
+    public void deleteChunk(ArenaChunk chunk) {
+        chunks.remove(chunk);
+    }
+
     public Set<ArenaChunk> getChunks() {
         return Collections.unmodifiableSet(chunks);
     }

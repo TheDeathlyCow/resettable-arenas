@@ -57,11 +57,7 @@ class Definer {
         for (BukkitRunnable task : tasks) {
             task.runTaskLater(plugin, ++numTasks);
         }
-
-        plugin.ARENA_REGISTRY.save();
-        plugin.CHUNK_SCHEDULER.save();
-        plugin.ARENA_REGISTRY.load();
-        plugin.CHUNK_SCHEDULER.load();
+        plugin.reloadData();
     }
 
     private int getDir(int from, int to) {

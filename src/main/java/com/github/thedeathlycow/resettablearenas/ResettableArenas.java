@@ -33,4 +33,11 @@ public final class ResettableArenas extends JavaPlugin implements Listener {
         ARENA_REGISTRY.save();
         CHUNK_SCHEDULER.save();
     }
+
+    public void reloadData() {
+        this.ARENA_REGISTRY.save();
+        this.CHUNK_SCHEDULER.save();
+        this.ARENA_REGISTRY.load();
+        this.CHUNK_SCHEDULER.load();
+    }
 }

@@ -151,6 +151,7 @@ public class ArenaChunk {
     private void delete() {
         arena = null;
         SCHEMATIC.delete();
+        PLUGIN.CHUNK_SCHEDULER.deleteChunk(this);
     }
 
     /**

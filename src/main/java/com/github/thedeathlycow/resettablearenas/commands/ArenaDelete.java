@@ -19,7 +19,7 @@ public class ArenaDelete implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
-        String toDelete = args[2];
+        String toDelete = args[1];
 
         Arena arena = plugin.ARENA_REGISTRY.getArenaByName(toDelete);
 
@@ -32,7 +32,8 @@ public class ArenaDelete implements CommandExecutor {
             sender.sendMessage(ChatColor.RED + "Error: Unable to delete arena '" + toDelete + "'!");
             return false;
         }
-        sender.sendMessage(ChatColor.AQUA + "Successfully delete arena '" + toDelete + "'!");
+        plugin.reloadData();
+        sender.sendMessage(ChatColor.AQUA + "Successfully deleted arena '" + toDelete + "'!");
         return true;
     }
 }
