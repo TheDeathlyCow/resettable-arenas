@@ -14,9 +14,6 @@ public class Ticker extends BukkitRunnable {
     @Override
     public void run() {
         PLUGIN.ARENA_REGISTRY.getArenas()
-                .forEach(Arena::checkScoreboard);
-
-        PLUGIN.CHUNK_SCHEDULER.getChunks()
-                .forEach(ArenaChunk::tick);
+                .forEach(Arena::tick);
     }
 }

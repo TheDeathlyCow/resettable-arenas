@@ -1,24 +1,32 @@
 package com.github.thedeathlycow.resettablearenas;
 
-import org.bukkit.Chunk;
-import org.bukkit.World;
+import org.bukkit.*;
 
 import java.util.Objects;
 
 public class ChunkWrapper {
 
-    private int x;
-    private int z;
-    private World world;
+    private Location location;
+    private String worldName;
+    private ChunkSnapshot snapshot;
 
     public ChunkWrapper(Chunk chunk) {
-        this.x = chunk.getX();
-        this.z = chunk.getZ();
-        this.world = chunk.getWorld();
+        this(chunk.getChunkSnapshot());
+    }
+
+    public ChunkWrapper(ChunkSnapshot chunk) {
+        this.worldName = chunk.getWorldName();
+        this.location = new Location(Bukkit.getWorld(worldName), chunk.getX(), 0, chunk.getZ());
+        this.snapshot = chunk;
     }
 
     public Chunk getChunk() {
-        return world.getChunkAt(x, z);
+        World world = Bukkit.getWorld(worldName);
+        return world.getChunkAt(location);
+    }
+
+    public ChunkSnapshot getSnapshot() {
+        return snapshot;
     }
 
     @Override
@@ -26,11 +34,11 @@ public class ChunkWrapper {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ChunkWrapper that = (ChunkWrapper) o;
-        return x == that.x && z == that.z && Objects.equals(world, that.world);
+        return location.equals(that.location) && worldName.equals(that.worldName) && snapshot.equals(that.snapshot);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(x, z, world);
+        return Objects.hash(location, worldName, snapshot);
     }
 }

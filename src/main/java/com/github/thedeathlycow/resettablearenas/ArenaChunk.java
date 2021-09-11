@@ -17,8 +17,6 @@ import com.sk89q.worldedit.session.ClipboardHolder;
 import org.bukkit.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
 import javax.annotation.Nonnull;
@@ -29,9 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -56,11 +52,11 @@ public class ArenaChunk {
      * The resettable arenas plugin.
      */
     @Nonnull
-    private final ResettableArenas PLUGIN;
+    private transient final ResettableArenas PLUGIN;
     /**
      * The arena this chunk is listening to.
      */
-    @Nullable
+    @Nonnull
     private Arena arena;
     /**
      * The load version of this chunk.
@@ -71,26 +67,33 @@ public class ArenaChunk {
      */
     private int saveVersion = 0;
 
+    public static final int CHUNK_SIZE = ResettableArenas.getInstance().getConfig()
+            .getInt("chunk-size");
+
     /**
      * Creates a new arena chunk.
      *
      * @param plugin Plugin reference for this chunk.
-     * @param arena Arena this chunk belongs to. May be null.
-     * @param chunk The world chunk this arena chunk belongs to.
+     * @param arena  Arena this chunk belongs to. May be null.
+     * @param chunk  The world chunk this arena chunk belongs to.
      */
-    public ArenaChunk(@Nonnull ResettableArenas plugin, @Nullable Arena arena, @Nonnull Chunk chunk) {
+    public ArenaChunk(@Nonnull ResettableArenas plugin, @Nonnull Arena arena, @Nonnull ChunkSnapshot chunk) {
         this.CHUNK = new ChunkWrapper(chunk);
         this.arena = arena;
         this.PLUGIN = plugin;
         String schematicFile = String.format("/schematics/region.%d.%d/ArenaChunk.%d.%d.schem",
-                chunk.getX()/32, chunk.getZ()/32,
+                chunk.getX() / 32, chunk.getZ() / 32,
                 chunk.getX(), chunk.getZ());
         this.SCHEMATIC = new File(plugin.getDataFolder().getAbsolutePath() + schematicFile);
-        SCHEMATIC.getParentFile().mkdirs();
+
+        if (!SCHEMATIC.getParentFile().exists()) {
+            SCHEMATIC.getParentFile().mkdirs();
+        }
     }
 
     /**
      * Updates the arena of this arena chunk.
+     *
      * @param arena New arena of this chunk.
      */
     public void setArena(@Nullable Arena arena) {
@@ -102,12 +105,8 @@ public class ArenaChunk {
      * or deleted.
      */
     public void tick() {
-        if (!PLUGIN.ARENA_REGISTRY.getArenas().contains(this.arena)) {
-            System.out.println("Deleting " + this.toString());
-            delete();
-        }
-        if (arena != null && CHUNK.getChunk().isLoaded()) {
-
+        long start = System.currentTimeMillis();
+        if (CHUNK.getChunk().isLoaded()) {
             checkPlayers();
 
             if (this.saveVersion != arena.getSaveVersion()) {
@@ -118,14 +117,19 @@ public class ArenaChunk {
                 this.load();
             }
         }
+        long elapsed = System.currentTimeMillis() - start;
+        if (elapsed > 5) {
+            System.out.printf("Chunk tick took %.3f seconds!%n", elapsed / 1000f);
+            System.out.println("Chunk is " + (CHUNK.getChunk().isLoaded() ? "loaded" : "not loaded"));
+        }
     }
 
     private void checkPlayers() {
         List<Player> playersInChunk = CHUNK.getChunk().getWorld().getPlayers().stream()
                 .filter((player -> {
                     Location playerLocation = player.getLocation();
-                    int playerX = playerLocation.getBlockX() / 16;
-                    int playerZ = playerLocation.getBlockZ() / 16;
+                    int playerX = playerLocation.getBlockX() / CHUNK_SIZE;
+                    int playerZ = playerLocation.getBlockZ() / CHUNK_SIZE;
                     return playerX == CHUNK.getChunk().getX() && playerZ == CHUNK.getChunk().getZ();
                 }))
                 .collect(Collectors.toList());
@@ -151,18 +155,18 @@ public class ArenaChunk {
     private void delete() {
         arena = null;
         SCHEMATIC.delete();
-        PLUGIN.CHUNK_SCHEDULER.deleteChunk(this);
     }
 
     /**
      * Saves the current state of the chunk to a schematic.
      */
-    private void save() {
-        Chunk chunk = CHUNK.getChunk();
-        final BlockVector3 min = BlockVector3.at(chunk.getX()*16, 0, chunk.getZ()*16);
-        final BlockVector3 max = BlockVector3.at(chunk.getX()*16 + 16, 255, chunk.getZ()*16 + 16);
+    private synchronized void save() {
+        System.out.println("Saving " + this.toString());
+        ChunkSnapshot chunk = CHUNK.getSnapshot();
+        final BlockVector3 min = BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16);
+        final BlockVector3 max = BlockVector3.at(chunk.getX() * 16 + CHUNK_SIZE, 255, chunk.getZ() * 16 + CHUNK_SIZE);
 
-        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(chunk.getWorld());
+        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(Bukkit.getWorld(chunk.getWorldName()));
         CuboidRegion region = new CuboidRegion(adaptedWorld, min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
 
@@ -184,7 +188,7 @@ public class ArenaChunk {
             sendErrorMessage("Error saving schematic: " + e + " for " + this.toString());
         }
 
-        PLUGIN.CHUNK_SCHEDULER.addChunk(this);
+
         this.saveVersion = arena.getSaveVersion();
     }
 
@@ -192,6 +196,7 @@ public class ArenaChunk {
      * Loads this arena chunk from its last saved state, if that state exists.
      */
     private void load() {
+        System.out.println("Loading " + this.toString());
         this.loadVersion = arena.getLoadVersion(); // stop trying to load if this load fails
         if (!SCHEMATIC.exists()) {
             return;
@@ -270,80 +275,4 @@ public class ArenaChunk {
         PLUGIN.getServer().broadcastMessage(ChatColor.RED + "[ResettableArenas] ERROR: " + message);
     }
 
-    /**
-     * Handles JSON serialization and deserialization for arena chunks.
-     */
-    public static class Serializer implements JsonSerializer<ArenaChunk>, JsonDeserializer<ArenaChunk> {
-
-        /**
-         * Plugin reference.
-         */
-        private final ResettableArenas plugin;
-
-        /**
-         * Constructs an arena chunk serializer with a plugin reference.
-         *
-         * @param plugin Resettable arenas plugin.
-         */
-        public Serializer(ResettableArenas plugin) {
-            this.plugin = plugin;
-        }
-
-        /**
-         * Converts a JSON object to an arena chunk.
-         * JSON objects of ArenaChunks must have the following format:
-         * <pre>
-         *     {
-         *         "chunkX": int,
-         *         "chunkZ": int,
-         *         "world": string,
-         *         "arena": string,
-         *         "loadVersion": int,
-         *         "saveVersion": int
-         *     }
-         * </pre>
-         *
-         * @param json
-         * @param typeOfT
-         * @param context
-         * @return
-         * @throws JsonParseException
-         */
-        @Override
-        public ArenaChunk deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-            JsonObject jsonObject = json.getAsJsonObject();
-
-            //* The basic data elems
-            int chunkX = jsonObject.get("chunkX").getAsInt();
-            int chunkZ = jsonObject.get("chunkZ").getAsInt();
-            String worldName = jsonObject.get("world").getAsString();
-            World world = plugin.getServer().getWorld(worldName);
-            Chunk worldChunk = world.getChunkAt(chunkX, chunkZ);
-            String arenaName = jsonObject.get("arena").getAsString();
-            Arena arena = plugin.ARENA_REGISTRY.getArenaByName(arenaName);
-
-            ArenaChunk arenaChunk = new ArenaChunk(plugin, arena, worldChunk);
-            //* Save and load nums
-            int loadVersion = jsonObject.get("loadVersion").getAsInt();
-            int saveVersion = jsonObject.get("saveVersion").getAsInt();
-            arenaChunk.loadVersion = loadVersion;
-            arenaChunk.saveVersion = saveVersion;
-
-            return arenaChunk;
-        }
-
-        @Override
-        public JsonElement serialize(ArenaChunk src, Type typeOfSrc, JsonSerializationContext context) {
-            JsonObject jsonObject = new JsonObject();
-            Chunk chunk = src.CHUNK.getChunk();
-            jsonObject.addProperty("chunkX", chunk.getX());
-            jsonObject.addProperty("chunkZ", chunk.getZ());
-            jsonObject.addProperty("world", chunk.getWorld().getName());
-            jsonObject.addProperty("arena", src.arena.getName());
-            jsonObject.addProperty("loadVersion", src.loadVersion);
-            jsonObject.addProperty("saveVersion", src.saveVersion);
-
-            return jsonObject;
-        }
-    }
 }

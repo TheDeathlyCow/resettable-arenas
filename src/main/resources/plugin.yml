@@ -6,10 +6,11 @@ authors: [TheDeathlyCow]
 description: Allows arenas to be reset.
 depend: [WorldEdit]
 
+chunk-size: 16
 
 commands:
   arena:
-    description: Define, save, and load arenas.
-    usage: /arena <help | define | list | save | load> <params>
+    description: Reload or list arenas.
+    usage: /arena <reload | list>
     permission: arenas.permission
     permission-message: §3ResettableArenas §f- You do not have permission to do that.

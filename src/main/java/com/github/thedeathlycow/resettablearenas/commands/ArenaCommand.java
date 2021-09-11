@@ -1,59 +1,57 @@
 package com.github.thedeathlycow.resettablearenas.commands;
 
+import com.github.thedeathlycow.resettablearenas.Arena;
+import com.github.thedeathlycow.resettablearenas.ResettableArenas;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 public class ArenaCommand implements CommandExecutor {
 
+    private final ResettableArenas PLUGIN;
+
+    public ArenaCommand(@NotNull ResettableArenas plugin) {
+        this.PLUGIN = plugin;
+    }
+
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
 
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(ChatColor.RED + "Error: This command can only be executed by a player!");
+        if (args.length != 1) {
+            sender.sendMessage(ChatColor.RED + "Error: Incorrect number of arguments specified!");
             return false;
         }
 
-        Player player = (Player) sender;
+        if (args[0].equalsIgnoreCase("reload")) {
+            PLUGIN.ARENA_REGISTRY
+                    .load();
+            sender.sendMessage(ChatColor.GREEN +
+                    String.format("Successfully reloaded %d arenas!",
+                            PLUGIN.ARENA_REGISTRY.size()));
+        } else if (args[0].equalsIgnoreCase("list")) {
+            if (PLUGIN.ARENA_REGISTRY.size() == 0) {
+                sender.sendMessage(ChatColor.GREEN + "There are no arenas defined yet!");
+            } else {
+                StringBuilder message = new StringBuilder();
+                message.append(ChatColor.GREEN).append("Arenas:");
+                for (Arena arena : PLUGIN.ARENA_REGISTRY.getArenas()) {
+                    message.append("- ")
+                            .append(arena.toString())
+                            .append("\n");
+                }
+                message.append("There are ")
+                        .append(PLUGIN.ARENA_REGISTRY.size())
+                        .append(" arenas!");
 
-        if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
-            sendHelp(player);
-            return true;
-        }
-
-        SubCommands subCommand;
-        try {
-            subCommand = SubCommands.valueOf(args[0].toUpperCase());
-        } catch (IllegalArgumentException e) {
-            player.sendMessage(ChatColor.RED + "Error: Illegal command argument: " + args[0]);
+                sender.sendMessage(message.toString());
+            }
+        } else {
+            sender.sendMessage(ChatColor.RED + "Error: Invalid arguments!");
             return false;
         }
-        return subCommand.executor.onCommand(player, command, label, args);
-    }
 
-    private enum SubCommands {
-        DEFINE(new ArenaDefine()),
-        SAVE(new ArenaSave()),
-        LOAD(new ArenaLoad()),
-        LIST(new ArenaList()),
-        DELETE(new ArenaDelete());
-
-        private final CommandExecutor executor;
-
-        SubCommands(CommandExecutor executor) {
-            this.executor = executor;
-        }
-    }
-
-    private void sendHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.RED + "=== Help for ResettableArenas ===");
-        sender.sendMessage(ChatColor.RED + " /arena help - Brings up this message.");
-        sender.sendMessage(ChatColor.RED + " /arena list - List all of the arenas.");
-        sender.sendMessage(ChatColor.RED + " /arena define <name: string> <from: x z> <to: x z> - Defines an arena with the specified name between two (x, z) coordinates.");
-        sender.sendMessage(ChatColor.RED + " /arena save <arena_name: string> - Saves the current state chunks of the arena when they are loaded.");
-        sender.sendMessage(ChatColor.RED + " /arena load <arena_name: string> - Loads the chunks from memory to their last saved version.");
-        sender.sendMessage(ChatColor.RED + " /arena delete <arena_name: string> - Deletes the specified arena.");
+        return true;
     }
 }
