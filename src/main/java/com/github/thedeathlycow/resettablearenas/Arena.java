@@ -38,9 +38,6 @@ public class Arena {
      */
     private final String NAME;
 
-    private final World world;
-
-    private final transient List<ArenaChunk> CHUNKS;
 
     /**
      * Creates an arena with a name.
@@ -52,114 +49,31 @@ public class Arena {
      * @param to    The chunk on the opposite corner of the arena from `from`.
      * @throws IllegalArgumentException Thrown if the name is invalid.
      */
-    public Arena(String name, World world, ArenaBound from, ArenaBound to) throws IllegalArgumentException {
+    public Arena(String name) throws IllegalArgumentException {
         if (Pattern.matches("^[a-zA-Z][a-zA-Z0-9_\\-+]{0,12}$", name)) {
             this.NAME = name;
-            this.CHUNKS = new ArrayList<>();
-            this.world = world;
-
             initialiseObjectives();
-
-            ArenaDefiner definer = new ArenaDefiner(this, world, from, to);
-            Bukkit.getScheduler()
-                    .runTaskAsynchronously(ResettableArenas.getInstance(), definer);
-
         } else {
             throw new IllegalArgumentException("Illegal arena name '" + name + "'");
         }
     }
 
-    void addChunk(ArenaChunk chunk) {
-        chunk.setArena(this);
-        CHUNKS.add(chunk);
-    }
-
-    //* Actor methods *//
-
-    public void tick() {
-        checkScoreboard();
-        long start = System.currentTimeMillis();
-        CHUNKS.forEach(ArenaChunk::tick);
-        long elapsed = System.currentTimeMillis() - start;
-        if (elapsed > 100) {
-            System.out.printf("Arena tick took %.3f seconds!%n", elapsed / 1000f);
-            System.out.println("Total chunks for arena: " + CHUNKS.size());
-        }
-    }
-
-    /**
-     * Sets the save version of the arena.
-     *
-     * @param saveVersion
-     */
-    public void save(int saveVersion) {
-        this.saveVersion = saveVersion;
-    }
-
-    /**
-     * Increments the save value of the arena, instructing chunks to
-     * begin saving their current state.
-     * <p>
-     * IMPORTANT: Only chunks that are loaded will be saved. If the chunk
-     * is not loaded, it will not be saved.
-     */
-    public void save() {
-        saveVersion++;
-        updateScoreboard("sv." + getName(), "saveNum", saveVersion);
-    }
-
-    /**
-     * Sets the load version of the arena.
-     *
-     * @param loadVersion
-     */
-    public void load(int loadVersion) {
-        this.loadVersion = loadVersion;
-    }
-
-    /**
-     * Increments the load value of the arena, instructing chunks to
-     * begin resetting to their current state.
-     * <p>
-     * IMPORTANT: Only chunks that are loaded will be reset. If the chunk
-     * is not loaded, it will not be reset.
-     */
-    public void load() {
-        loadVersion++;
-        updateScoreboard("ld." + getName(), "loadNum", loadVersion);
-    }
-
     //* Scoreboard stuff *//
 
     private void initialiseObjectives() {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        try {
-            scoreboard.registerNewObjective("ld." + NAME, "dummy", "Load" + NAME);
-        } catch (IllegalArgumentException ignored) {
-        }
-        try {
-            scoreboard.registerNewObjective("sv." + NAME, "dummy", "Save" + NAME);
-        } catch (IllegalArgumentException ignored) {
-        }
-        updateScoreboard("ld." + NAME, "$loadNum", loadVersion);
-        updateScoreboard("sv." + NAME, "$saveNum", loadVersion);
+        ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
+        String loadObjective = "ld." + getName();
+        String saveObjective = "sv." + getName();
+        handler.initialiseObjective(loadObjective, "dummy", loadObjective);
+        handler.initialiseObjective(saveObjective, "dummy", saveObjective);
+        handler.updateScoreboard(loadObjective, "$loadNum", loadVersion);
+        handler.updateScoreboard(saveObjective, "$saveNum", saveVersion);
     }
 
     public void checkScoreboard() {
-        saveVersion = getScore("sv." + getName(), "$saveNum");
-        loadVersion = getScore("ld." + getName(), "$loadNum");
-    }
-
-    private int getScore(String objectiveName, String key) {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        Objective objective = scoreboard.getObjective(objectiveName);
-        return objective.getScore(key).getScore();
-    }
-
-    private void updateScoreboard(String objectiveName, String key, int value) {
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        Objective objective = scoreboard.getObjective(objectiveName);
-        objective.getScore(key).setScore(value);
+        ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
+        saveVersion = handler.getScore("sv." + getName(), "$saveNum");
+        loadVersion = handler.getScore("ld." + getName(), "$loadNum");
     }
 
     //* Getters *//
@@ -189,67 +103,5 @@ public class Arena {
     public String toString() {
         return String.format("%s: sv=%d, ld=%d", NAME, saveVersion, loadVersion);
     }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Arena arena = (Arena) o;
-        return loadVersion == arena.loadVersion && saveVersion == arena.saveVersion && NAME.equals(arena.NAME) && world.equals(arena.world);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(loadVersion, saveVersion, NAME, world);
-    }
-
-    // TODO: gen equals and hashcode
-
-    public static class Deserializer implements JsonDeserializer<Arena> {
-
-        public static final Gson GSON = new GsonBuilder()
-                .disableHtmlEscaping()
-                .registerTypeAdapter(ArenaBound.class, new ArenaBound())
-                .registerTypeAdapter(Arena.class, new Deserializer())
-                .create();
-
-        /**
-         * <pre>
-         * {
-         *      "name":"example",
-         *      "world":"overworld",
-         *      "from": {
-         *          "x": 0,
-         *          "z" 0
-         *      },
-         *      "to": {
-         *          "x": 512,
-         *      "z": 512
-         *      }
-         * }
-         * </pre>
-         *
-         * @param json
-         * @param typeOfT
-         * @param context
-         * @return
-         * @throws JsonParseException
-         */
-        @Override
-        public Arena deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-            JsonObject object = json.getAsJsonObject();
-            String name = object.get("name").getAsString();
-            ArenaBound from = GSON.fromJson(object.get("from"), ArenaBound.class);
-            ArenaBound to = GSON.fromJson(object.get("to"), ArenaBound.class);
-
-            String worldName = object.get("world").getAsString();
-            World world = Bukkit.getWorld(worldName);
-
-            Arena deserialized = new Arena(name, world, from, to);
-
-            return deserialized;
-        }
-    }
-
 
 }
