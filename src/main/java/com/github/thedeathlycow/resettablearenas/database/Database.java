@@ -105,8 +105,6 @@ public abstract class Database {
 
     @Nullable
     public Arena getArena(String arenaName) {
-        Connection conn = null;
-        PreparedStatement ps = null;
         ResultSet result = runQuery("SELECT * FROM " + arenasTable + " WHERE arenaName = '" + arenaName + "';");
         try {
             while (result.next()) {
@@ -120,40 +118,20 @@ public abstract class Database {
         } finally {
             close(result);
         }
-//        try {
-//            conn = getSQLConnection();
-//            ps = conn.prepareStatement("SELECT * FROM " + arenasTable + " WHERE arenaName = '" + arenaName + "';");
-//            result = ps.executeQuery();
-//            while (result.next()) {
-//                String resultName = result.getString("name");
-//                if (resultName.equals(arenaName)) {
-//                    return new Arena(resultName);
-//                }
-//            }
-//        } catch (SQLException ex) {
-//            plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);
-//        } finally {
-//            close(ps, conn);
-//        }
         return null;
     }
 
     @Nullable
     public ArenaChunk getArenaChunk(ChunkSnapshot snapshot) {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet result = null;
-
         String worldName = snapshot.getWorldName();
         int posX = snapshot.getX();
         int posZ = snapshot.getZ();
 
+        ResultSet result = runQuery("SELECT * FROM " + arenaChunksTable + " WHERE worldName = '" + worldName + "' " +
+                "AND posX = " + posX + " " +
+                "AND posZ = " + posZ + ";");
+
         try {
-            conn = getSQLConnection();
-            ps = conn.prepareStatement("SELECT * FROM " + arenaChunksTable + " WHERE worldName = '" + worldName + "' " +
-                    "AND posX = " + posX + " " +
-                    "AND posZ = " + posZ + ";");
-            result = ps.executeQuery();
             while (result.next()) {
                 String resWorldName = result.getString("worldName");
                 int resX = result.getInt("posX");
@@ -177,7 +155,7 @@ public abstract class Database {
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);
         } finally {
-            close(ps, conn);
+            close(result);
         }
         return null;
     }
