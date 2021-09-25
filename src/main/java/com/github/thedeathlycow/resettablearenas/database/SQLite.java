@@ -34,7 +34,7 @@ public class SQLite extends Database {
             "saveVer INT," +
             "loadVer INT," +
             "arenaName VARCHAR(13) REFERENCES " + arenasTable + "," +
-            "CONSTRAINT arenaChunkPrimaryKey PRIMARY KEY (worldName, posX, posZ)" +
+            "PRIMARY KEY (worldName, posX, posZ)" +
             ");";
 
     @Override

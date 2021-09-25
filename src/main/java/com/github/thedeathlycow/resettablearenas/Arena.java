@@ -1,16 +1,7 @@
 package com.github.thedeathlycow.resettablearenas;
 
-import com.google.gson.*;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.scoreboard.Objective;
-import org.bukkit.scoreboard.Scoreboard;
 
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -99,9 +90,29 @@ public class Arena {
         return saveVersion;
     }
 
+    public void setLoadVersion(int loadVersion) {
+        this.loadVersion = loadVersion;
+        ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
+        handler.updateScoreboard("ld." + getName(), "$loadNum", this.loadVersion);
+    }
+
+    public void setSaveVersion(int saveVersion) {
+        this.saveVersion = saveVersion;
+        ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
+        handler.updateScoreboard("sv." + getName(), "$saveNum", this.saveVersion);
+    }
+
+    public void save() {
+        setSaveVersion(this.saveVersion + 1);
+    }
+
+    public void load() {
+        setLoadVersion(this.loadVersion + 1);
+    }
+
     @Override
     public String toString() {
-        return String.format("%s: sv=%d, ld=%d", NAME, saveVersion, loadVersion);
+        return String.format("Arena:{name=%s, sv=%d, ld=%d}", NAME, saveVersion, loadVersion);
     }
 
 }

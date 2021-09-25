@@ -18,12 +18,12 @@ public class WorldListener implements Listener {
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
-        ChunkSnapshot chunk = event.getChunk().getChunkSnapshot();
-
-        ArenaChunk arenaChunk = PLUGIN.getDatabase().getArenaChunk(chunk);
-
-        if (arenaChunk != null) {
-            arenaChunk.tick();
-        }
+//        ChunkSnapshot chunk = event.getChunk().getChunkSnapshot();
+//
+//        ArenaChunk arenaChunk = PLUGIN.getDatabase().getArenaChunk(chunk);
+//
+//        if (arenaChunk != null) {
+//            arenaChunk.tick(PLUGIN.getDatabase());
+//        }
     }
 }

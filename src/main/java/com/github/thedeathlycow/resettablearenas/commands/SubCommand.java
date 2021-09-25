@@ -48,10 +48,6 @@ public abstract class SubCommand {
         }
     }
 
-    public boolean run(@NotNull CommandSender sender, String... args) {
-        return run(sender, Arrays.asList(args));
-    }
-
     /**
      * Parse a list of args
      * @param argsStr

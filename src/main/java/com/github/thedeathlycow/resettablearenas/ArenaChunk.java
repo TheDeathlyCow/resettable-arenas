@@ -1,5 +1,7 @@
 package com.github.thedeathlycow.resettablearenas;
 
+import com.fastasyncworldedit.bukkit.util.BukkitTaskManager;
+import com.github.thedeathlycow.resettablearenas.database.Database;
 import com.google.gson.*;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
@@ -17,6 +19,9 @@ import com.sk89q.worldedit.session.ClipboardHolder;
 import org.bukkit.*;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitScheduler;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Scoreboard;
 
 import javax.annotation.Nonnull;
@@ -26,6 +31,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -69,13 +75,9 @@ public class ArenaChunk {
      */
     private int saveVersion = 0;
 
-    public static final int CHUNK_SIZE = ResettableArenas.getInstance().getConfig()
-            .getInt("chunk-size");
-
     /**
      * Creates a new arena chunk.
      *
-     * @param plugin Plugin reference for this chunk.
      * @param arena  Arena this chunk belongs to. May be null.
      * @param chunk  The world chunk this arena chunk belongs to.
      */
@@ -93,9 +95,10 @@ public class ArenaChunk {
         }
     }
 
-    public void tick() {
+    public void tick(Database db) {
 
         Chunk chunk = CHUNK.getChunk();
+
         boolean wasUnloaded = false;
 
         if (!chunk.isLoaded()) {
@@ -103,15 +106,33 @@ public class ArenaChunk {
             chunk.load();
         }
 
+        boolean saved = false;
+        boolean loaded = false;
+
+//        System.out.println(this.toString());
         if (this.saveVersion != arena.getSaveVersion()) {
             this.save();
+            saved = true;
         }
-        if (this.loadVersion != arena.getLoadVersion()) {
+        if (!saved && (this.loadVersion != arena.getLoadVersion())) {
             this.load();
+            loaded = true;
         }
+        updateDatabase(db, saved, loaded);
 
         if (wasUnloaded) {
             chunk.unload();
+        }
+    }
+
+    private void updateDatabase(Database db, boolean saved, boolean loaded) {
+        Runnable saveDBTask = () -> db.updateChunk(this, "saveVer", this.getSaveVersion());
+        Runnable loadDBTask = () -> db.updateChunk(this, "loadVer", this.getLoadVersion());
+        if (saved) {
+            Bukkit.getScheduler().runTaskAsynchronously(PLUGIN, saveDBTask);
+        }
+        if (loaded) {
+            Bukkit.getScheduler().runTaskAsynchronously(PLUGIN, loadDBTask);
         }
     }
 
@@ -127,7 +148,7 @@ public class ArenaChunk {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
         ScoreboardHandler handler = new ScoreboardHandler(scoreboard);
 
-        String leaveTag = String.format(PLUGIN.getConfig().getString("LeaveTag", "leave_%s"));
+        String leaveTag = String.format(PLUGIN.getConfig().getString("LeaveTag", "leave_%s"), arena.getName());
 
         for (Player player : playersInChunk) {
             Location location = player.getLocation();
@@ -147,26 +168,25 @@ public class ArenaChunk {
     /**
      * Saves the current state of the chunk to a schematic.
      */
-    public synchronized void save() {
+    public void save() {
         System.out.println("Saving " + this.toString());
+        this.saveVersion = arena.getSaveVersion();
         ChunkSnapshot chunk = CHUNK.getSnapshot();
         final BlockVector3 min = BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16);
-        final BlockVector3 max = BlockVector3.at(chunk.getX() * 16 + CHUNK_SIZE, 255, chunk.getZ() * 16 + CHUNK_SIZE);
+        final BlockVector3 max = BlockVector3.at(chunk.getX() * 16 + 15, 255, chunk.getZ() * 16 + 15);
 
         com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(Bukkit.getWorld(chunk.getWorldName()));
         CuboidRegion region = new CuboidRegion(adaptedWorld, min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
 
-        EditSession session = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1);
-        ForwardExtentCopy copy = new ForwardExtentCopy(session, region, clipboard, region.getMinimumPoint());
-        copy.setCopyingEntities(true);
-        try {
+        try (EditSession session = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1)) {
+            ForwardExtentCopy copy = new ForwardExtentCopy(session, region, clipboard, region.getMinimumPoint());
+            copy.setCopyingEntities(false);
             Operations.complete(copy);
         } catch (WorldEditException e) {
             e.printStackTrace();
             sendErrorMessage("Error " + e + " while copying " + this.toString());
         }
-        session.close();
 
         try (ClipboardWriter writer = BuiltInClipboardFormat.SPONGE_SCHEMATIC.getWriter(new FileOutputStream(SCHEMATIC))) {
             writer.write(clipboard);
@@ -174,9 +194,6 @@ public class ArenaChunk {
             e.printStackTrace();
             sendErrorMessage("Error saving schematic: " + e + " for " + this.toString());
         }
-
-
-        this.saveVersion = arena.getSaveVersion();
     }
 
     /**
@@ -207,17 +224,16 @@ public class ArenaChunk {
         // paste clipboard
         Chunk chunk = CHUNK.getChunk();
         com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(chunk.getWorld());
-        EditSession editSession = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1);
-        Operation operation = new ClipboardHolder(clipboard).createPaste(editSession)
-                .to(BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16))
-                .ignoreAirBlocks(false).build();
-        try {
+        try (EditSession editSession = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1)) {
+            Operation operation = new ClipboardHolder(clipboard)
+                    .createPaste(editSession)
+                    .to(BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16))
+                    .ignoreAirBlocks(false).build();
             Operations.complete(operation);
         } catch (WorldEditException e) {
             e.printStackTrace();
             sendErrorMessage("Error pasting schematic: " + e + " for " + this.toString());
         }
-        editSession.close();
     }
 
     /**
@@ -247,8 +263,10 @@ public class ArenaChunk {
 
     @Override
     public String toString() {
-        return "ArenaChunk:{chunk={x=" + CHUNK.getChunk().getX() + ",z=" + CHUNK.getChunk().getZ() + "}"
-                + ",arena=" + this.arena.getName() + "}";
+        return "ArenaChunk:{sv=" + this.getSaveVersion() +
+                ",ld=" + this.getLoadVersion() +
+                ",chunk={x=" + CHUNK.getChunk().getX() + ",z=" + CHUNK.getChunk().getZ() + "}"
+                + ",arena={" + this.arena.toString() + "}}";
     }
 
     public void setLoadVersion(int loadVersion) {

@@ -16,8 +16,14 @@ public class ChunkWrapper {
 
     public ChunkWrapper(ChunkSnapshot chunk) {
         this.worldName = chunk.getWorldName();
-        this.location = new Location(Bukkit.getWorld(worldName), chunk.getX(), 0, chunk.getZ());
+        this.location = new Location(Bukkit.getWorld(worldName), chunk.getX() * 16, 0, chunk.getZ() * 16);
         this.snapshot = chunk;
+    }
+
+    public ChunkWrapper(String worldName, Location location) {
+        this.worldName = worldName;
+        this.location = location;
+        snapshot = null;
     }
 
     public Chunk getChunk() {
@@ -26,6 +32,9 @@ public class ChunkWrapper {
     }
 
     public ChunkSnapshot getSnapshot() {
+        if (snapshot == null) {
+            snapshot = getChunk().getChunkSnapshot();
+        }
         return snapshot;
     }
 
