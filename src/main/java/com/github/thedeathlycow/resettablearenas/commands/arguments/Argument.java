@@ -1,5 +1,7 @@
 package com.github.thedeathlycow.resettablearenas.commands.arguments;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Stores and parses an argument of a generic type.
  *
@@ -10,17 +12,7 @@ public abstract class Argument<E> {
     /**
      * The value of an argument.
      */
-    protected E value;
-
-    /**
-     * Attempts to parse an argument, and saves it if it was successful.
-     *
-     * @param arg The string arg to be parsed.
-     * @throws ArgParseException Thrown if the argument could not be parsed.
-     */
-    public Argument(String arg) throws ArgParseException {
-        this.value = parseArg(arg);
-    }
+    private E value;
 
     /**
      * Attempts to parse an argument, and returns it if it was successful.
@@ -36,7 +28,19 @@ public abstract class Argument<E> {
      *
      * @return The value of this argument.
      */
+    @Nullable
     public E getValue() {
         return value;
+    }
+
+    /**
+     * Attempts to parse the argument, and if successful, sets the parsed
+     * value to the value of this argument.
+     *
+     * @param arg String value of arg.
+     * @throws ArgParseException Thrown if arg could not be parsed.
+     */
+    public void setValue(String arg) throws ArgParseException {
+        this.value = parseArg(arg);
     }
 }

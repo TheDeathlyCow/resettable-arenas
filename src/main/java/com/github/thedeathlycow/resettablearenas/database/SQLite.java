@@ -22,10 +22,9 @@ public class SQLite extends Database {
     }
 
     private String createArenaTable = "CREATE TABLE IF NOT EXISTS " + arenasTable + " (" +
-            "arenaName VARCHAR(13) NOT NULL CONSTRAINT isValidName CHECK (arenaName REGEXP '^[a-zA-Z][a-zA-Z0-9_\\-+]{0,12}$') PRIMARY KEY," +
+            "arenaName VARCHAR(13) NOT NULL PRIMARY KEY," +
             "saveVer INT," +
-            "loadVer INT," +
-            "PRIMARY KEY (arenaName)" +
+            "loadVer INT" +
             ");";
 
     private String createArenaChnkTable = "CREATE TABLE IF NOT EXISTS " + arenaChunksTable + " (" +
