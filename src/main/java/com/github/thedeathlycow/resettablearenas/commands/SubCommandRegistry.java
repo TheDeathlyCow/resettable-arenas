@@ -15,6 +15,7 @@ public class SubCommandRegistry {
     public static final SubCommand LIST;
     public static final SubCommand CREATE;
     public static final SubCommand ADD_CHUNK;
+    public static final SubCommand ADD_CHUNKS;
     public static final SubCommand SAVE;
     public static final SubCommand LOAD;
 
@@ -23,6 +24,7 @@ public class SubCommandRegistry {
         LIST = register(new ListArenas());
         CREATE = register(new CreateArena());
         ADD_CHUNK = register(new AddArenaChunk());
+        ADD_CHUNKS = register(new AddArenaChunks());
         SAVE = register(new SaveCommand());
         LOAD = register(new LoadCommand());
     }

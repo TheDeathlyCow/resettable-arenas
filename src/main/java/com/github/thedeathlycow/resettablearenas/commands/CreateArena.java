@@ -18,7 +18,7 @@ public class CreateArena extends SubCommand {
     }
 
     @Override
-    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args) {
+    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args, int numArgs) {
         String arenaName = (String) args[0].getValue();
         Arena arena = new Arena(arenaName);
         try {

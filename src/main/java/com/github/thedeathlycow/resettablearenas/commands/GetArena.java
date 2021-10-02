@@ -17,7 +17,7 @@ public class GetArena extends SubCommand {
     }
 
     @Override
-    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args) {
+    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args, int numArgs) {
         Arena arena = (Arena)args[0].getValue();
         sender.sendMessage(ChatColor.GREEN + arena.toString());
         return true;

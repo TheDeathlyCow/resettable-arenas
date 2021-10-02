@@ -15,7 +15,7 @@ public class LoadCommand extends SubCommand {
     }
 
     @Override
-    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args) {
+    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args, int numArgs) {
         Arena arena = (Arena) args[0].getValue();
         arena.load();
         try {

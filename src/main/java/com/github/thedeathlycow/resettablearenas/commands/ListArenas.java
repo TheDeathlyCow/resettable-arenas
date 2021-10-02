@@ -14,7 +14,7 @@ public class ListArenas extends SubCommand {
     }
 
     @Override
-    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args) {
+    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args, int numArgs) {
         StringBuilder builder = new StringBuilder();
         builder.append(ChatColor.GREEN);
 

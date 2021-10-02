@@ -1,7 +1,12 @@
 package com.github.thedeathlycow.resettablearenas;
 
+import com.github.thedeathlycow.resettablearenas.database.Database;
 import org.bukkit.Bukkit;
+import org.bukkit.scheduler.BukkitRunnable;
 
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
@@ -70,12 +75,15 @@ public class Arena {
         ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
         int scoreSaveVersion = handler.getScore("sv." + getName(), "$saveNum");
         int scoreLoadVersion = handler.getScore("ld." + getName(), "$loadNum");
+
+        boolean updatedVersion = false;
         if (this.saveVersion != scoreSaveVersion) {
             ResettableArenas.getInstance()
                     .getLogger()
                     .log(Level.FINE, String.format("Save version of %s updated from scoreboard.",
                             this.getName()));
             this.saveVersion = scoreSaveVersion;
+            updatedVersion = true;
         }
         if (this.loadVersion != scoreLoadVersion) {
             ResettableArenas.getInstance()
@@ -83,7 +91,17 @@ public class Arena {
                     .log(Level.FINE, String.format("Load version of %s updated from scoreboard.",
                             this.getName()));
             this.loadVersion = scoreLoadVersion;
+            updatedVersion = true;
         }
+
+        Bukkit.getScheduler().scheduleAsyncDelayedTask(ResettableArenas.getInstance(),
+                () -> {
+                    try {
+                        ResettableArenas.getInstance().getDatabase().updateArena(this);
+                    } catch (SQLException e) {
+                        System.out.println("Error updating database after scoreboard trigger: " + e);
+                    }
+                }, 1);
     }
 
     //* Getters *//

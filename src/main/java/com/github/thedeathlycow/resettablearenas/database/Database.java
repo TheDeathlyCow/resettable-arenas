@@ -155,6 +155,11 @@ public abstract class Database {
         return null;
     }
 
+    public void updateArena(Arena arena) throws SQLException {
+        updateArena(arena, "saveVer", arena.getSaveVersion());
+        updateArena(arena, "loadVer", arena.getLoadVersion());
+    }
+
     public void updateArena(Arena arena, String col, int value) throws SQLException {
         SQLException exception = null;
         String query = "UPDATE " + arenasTable +

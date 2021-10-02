@@ -9,8 +9,6 @@ import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public abstract class SubCommand {
@@ -29,7 +27,7 @@ public abstract class SubCommand {
         this.args = args;
     }
 
-    protected abstract boolean execute(@NotNull CommandSender sender, Argument<?>[] args);
+    protected abstract boolean execute(@NotNull CommandSender sender, Argument<?>[] args, int numArgs);
 
     public boolean run(@NotNull CommandSender sender, List<String> args) {
         boolean isValidArgs = false;
@@ -41,7 +39,7 @@ public abstract class SubCommand {
         }
 
         if (isValidArgs) {
-            return execute(sender, this.args);
+            return execute(sender, this.args, args.size());
         } else {
             sender.sendMessage(ChatColor.RED + "Error: Illegal arguments specified.");
             return false;
@@ -50,6 +48,7 @@ public abstract class SubCommand {
 
     /**
      * Parse a list of args
+     *
      * @param argsStr
      * @return
      */
@@ -59,7 +58,7 @@ public abstract class SubCommand {
             return false;
         }
 
-        for (int i = 0; i < this.args.length; i++) {
+        for (int i = 0; i < argsStr.size(); i++) {
             Argument<?> arg = this.args[i];
             arg.setValue(argsStr.get(i));
         }
@@ -81,6 +80,10 @@ public abstract class SubCommand {
             }
         }
         return true;
+    }
+
+    public List<Argument<?>> getArgs() {
+        return List.of(args);
     }
 
     public String getIdentifier() {

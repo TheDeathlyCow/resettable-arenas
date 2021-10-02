@@ -16,7 +16,7 @@ public class SaveCommand extends SubCommand {
     }
 
     @Override
-    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args) {
+    protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args, int numArgs) {
         Arena arena = (Arena) args[0].getValue();
         arena.save();
         try {
