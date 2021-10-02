@@ -23,6 +23,8 @@ public class AddArenaChunk extends SubCommand {
             Arena arena = (Arena) args[0].getValue();
             ChunkSnapshot chunk = player.getLocation().getChunk().getChunkSnapshot();
             ArenaChunk arenaChunk = new ArenaChunk(arena, chunk);
+            arenaChunk.setSaveVersion(arena.getSaveVersion());
+            arenaChunk.setLoadVersion(arena.getLoadVersion());
             database.addArenaChunk(arenaChunk);
             return true;
         } else {

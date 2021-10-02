@@ -1,8 +1,6 @@
 package com.github.thedeathlycow.resettablearenas;
 
-import com.fastasyncworldedit.bukkit.util.BukkitTaskManager;
 import com.github.thedeathlycow.resettablearenas.database.Database;
-import com.google.gson.*;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.WorldEditException;
@@ -17,26 +15,18 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import org.bukkit.*;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitScheduler;
-import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.entity.*;
 import org.bukkit.scoreboard.Scoreboard;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 /**
  * An arena chunk is a chunk that is part of an arena. Each arena chunk may
@@ -78,8 +68,8 @@ public class ArenaChunk {
     /**
      * Creates a new arena chunk.
      *
-     * @param arena  Arena this chunk belongs to. May be null.
-     * @param chunk  The world chunk this arena chunk belongs to.
+     * @param arena Arena this chunk belongs to. May be null.
+     * @param chunk The world chunk this arena chunk belongs to.
      */
     public ArenaChunk(@Nonnull Arena arena, @Nonnull ChunkSnapshot chunk) {
         this.CHUNK = new ChunkWrapper(chunk);
@@ -95,33 +85,21 @@ public class ArenaChunk {
         }
     }
 
-    public void tick(Database db) {
-
+    public void tick() {
         Chunk chunk = CHUNK.getChunk();
-
-        boolean wasUnloaded = false;
-
-        if (!chunk.isLoaded()) {
-            wasUnloaded = true;
-            chunk.load();
-        }
-
-        boolean saved = false;
-        boolean loaded = false;
-
-//        System.out.println(this.toString());
-        if (this.saveVersion != arena.getSaveVersion()) {
-            this.save();
-            saved = true;
-        }
-        if (!saved && (this.loadVersion != arena.getLoadVersion())) {
-            this.load();
-            loaded = true;
-        }
-        updateDatabase(db, saved, loaded);
-
-        if (wasUnloaded) {
-            chunk.unload();
+        if (chunk.isLoaded()) {
+            boolean saved = false;
+            boolean loaded = false;
+            if (this.saveVersion != arena.getSaveVersion()) {
+                this.save();
+                saved = true;
+            }
+            if (!saved && (this.loadVersion != arena.getLoadVersion())) {
+                this.load();
+                loaded = true;
+            }
+            Database db = PLUGIN.getDatabase();
+            updateDatabase(db, saved, loaded);
         }
     }
 
@@ -133,35 +111,6 @@ public class ArenaChunk {
         }
         if (loaded) {
             Bukkit.getScheduler().runTaskAsynchronously(PLUGIN, loadDBTask);
-        }
-    }
-
-    private void checkPlayers() {
-
-        List<Player> playersInChunk = new ArrayList<>(20);
-        for (Entity entity : CHUNK.getChunk().getEntities()) {
-            if (entity instanceof Player) {
-                playersInChunk.add((Player) entity);
-            }
-        }
-
-        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        ScoreboardHandler handler = new ScoreboardHandler(scoreboard);
-
-        String leaveTag = String.format(PLUGIN.getConfig().getString("LeaveTag", "leave_%s"), arena.getName());
-
-        for (Player player : playersInChunk) {
-            Location location = player.getLocation();
-            int loadNum = handler.getScore(
-                    "ld." + arena.getName(),
-                    player.getName());
-
-            if (loadNum != arena.getLoadVersion()) {
-                player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "This arena has been reset! You have been sent back to spawn.");
-                player.sendMessage(ChatColor.GOLD + "" + ChatColor.ITALIC + "(This usually happens if you left a game and came back after the game finished.)");
-                player.addScoreboardTag(leaveTag);
-                player.playSound(location, Sound.BLOCK_NOTE_BLOCK_DIDGERIDOO, 1, 0.8f);
-            }
         }
     }
 
@@ -218,7 +167,6 @@ public class ArenaChunk {
         }
 
         // remove players and other entities
-        checkPlayers();
         clearChunkEntities();
 
         // paste clipboard
@@ -228,7 +176,8 @@ public class ArenaChunk {
             Operation operation = new ClipboardHolder(clipboard)
                     .createPaste(editSession)
                     .to(BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16))
-                    .ignoreAirBlocks(false).build();
+                    .ignoreAirBlocks(false)
+                    .build();
             Operations.complete(operation);
         } catch (WorldEditException e) {
             e.printStackTrace();
@@ -236,12 +185,33 @@ public class ArenaChunk {
         }
     }
 
+    private void checkPlayer(Player player) {
+        ScoreboardHandler handler = new ScoreboardHandler();
+        String leaveTag = String.format(PLUGIN.getConfig().getString("LeaveTag", "leave_%s"), arena.getName());
+        Location location = player.getLocation();
+        int loadNum = handler.getScore(
+                "ld." + arena.getName(),
+                player.getName());
+
+        if (loadNum != arena.getLoadVersion()) {
+            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "This arena has been reset! You have been sent back to spawn.");
+            player.sendMessage(ChatColor.GOLD + "" + ChatColor.ITALIC + "(This usually happens if you left a game and came back after the game finished.)");
+            player.addScoreboardTag(leaveTag);
+            player.playSound(location, Sound.BLOCK_NOTE_BLOCK_DIDGERIDOO, 1, 0.8f);
+        }
+    }
+
     /**
-     * Removes the entities from this chunk.
+     * Removes entities from this chunk, except for
+     * players, markers, armour stands, and hanging entities.
      */
     private void clearChunkEntities() {
         for (Entity entity : CHUNK.getChunk().getEntities()) {
-            if (!(entity instanceof Player)) {
+            if (entity instanceof Player) {
+                checkPlayer((Player) entity);
+            } else if (!(entity instanceof Marker
+                    || entity instanceof Hanging
+                    || entity instanceof ArmorStand)) {
                 Location location = entity.getLocation();
                 entity.teleport(location.add(0, -1000, 0));
             }

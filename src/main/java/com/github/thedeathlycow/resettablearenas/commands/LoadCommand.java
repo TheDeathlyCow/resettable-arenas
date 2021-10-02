@@ -7,7 +7,6 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 
 public class LoadCommand extends SubCommand {
@@ -17,7 +16,7 @@ public class LoadCommand extends SubCommand {
 
     @Override
     protected boolean execute(@NotNull CommandSender sender, Argument<?>[] args) {
-        Arena arena = (Arena)args[0].getValue();
+        Arena arena = (Arena) args[0].getValue();
         arena.load();
         try {
             database.updateArena(arena, "loadVer", arena.getLoadVersion());
@@ -25,6 +24,7 @@ public class LoadCommand extends SubCommand {
             sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
             return true;
         }
+
         sender.sendMessage(ChatColor.GREEN + "Marked arena " + arena.getName() + " for loading!");
         return true;
     }

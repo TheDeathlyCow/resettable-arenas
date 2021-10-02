@@ -2,6 +2,7 @@ package com.github.thedeathlycow.resettablearenas;
 
 import org.bukkit.Bukkit;
 
+import java.util.logging.Level;
 import java.util.regex.Pattern;
 
 /**
@@ -55,16 +56,34 @@ public class Arena {
         ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
         String loadObjective = "ld." + getName();
         String saveObjective = "sv." + getName();
-        handler.initialiseObjective(loadObjective, "dummy", loadObjective);
-        handler.initialiseObjective(saveObjective, "dummy", saveObjective);
-        handler.updateScoreboard(loadObjective, "$loadNum", loadVersion);
-        handler.updateScoreboard(saveObjective, "$saveNum", saveVersion);
+        if (!handler.isRegisteredObjective(loadObjective)) {
+            handler.initialiseObjective(loadObjective, "dummy", loadObjective);
+            handler.updateScoreboard(loadObjective, "$loadNum", loadVersion);
+        }
+        if (!handler.isRegisteredObjective(saveObjective)) {
+            handler.initialiseObjective(saveObjective, "dummy", saveObjective);
+            handler.updateScoreboard(saveObjective, "$saveNum", saveVersion);
+        }
     }
 
     public void checkScoreboard() {
         ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
-        saveVersion = handler.getScore("sv." + getName(), "$saveNum");
-        loadVersion = handler.getScore("ld." + getName(), "$loadNum");
+        int scoreSaveVersion = handler.getScore("sv." + getName(), "$saveNum");
+        int scoreLoadVersion = handler.getScore("ld." + getName(), "$loadNum");
+        if (this.saveVersion != scoreSaveVersion) {
+            ResettableArenas.getInstance()
+                    .getLogger()
+                    .log(Level.FINE, String.format("Save version of %s updated from scoreboard.",
+                            this.getName()));
+            this.saveVersion = scoreSaveVersion;
+        }
+        if (this.loadVersion != scoreLoadVersion) {
+            ResettableArenas.getInstance()
+                    .getLogger()
+                    .log(Level.FINE, String.format("Load version of %s updated from scoreboard.",
+                            this.getName()));
+            this.loadVersion = scoreLoadVersion;
+        }
     }
 
     //* Getters *//
@@ -91,15 +110,27 @@ public class Arena {
     }
 
     public void setLoadVersion(int loadVersion) {
+        setLoadVersion(loadVersion, true);
+    }
+
+    public void setLoadVersion(int loadVersion, boolean updateScoreboard) {
         this.loadVersion = loadVersion;
-        ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
-        handler.updateScoreboard("ld." + getName(), "$loadNum", this.loadVersion);
+        if (updateScoreboard) {
+            ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
+            handler.updateScoreboard("ld." + getName(), "$loadNum", this.loadVersion);
+        }
     }
 
     public void setSaveVersion(int saveVersion) {
+        setSaveVersion(saveVersion, true);
+    }
+
+    public void setSaveVersion(int saveVersion, boolean updateScoreboard) {
         this.saveVersion = saveVersion;
-        ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
-        handler.updateScoreboard("sv." + getName(), "$saveNum", this.saveVersion);
+        if (updateScoreboard) {
+            ScoreboardHandler handler = new ScoreboardHandler(Bukkit.getScoreboardManager().getMainScoreboard());
+            handler.updateScoreboard("sv." + getName(), "$saveNum", this.saveVersion);
+        }
     }
 
     public void save() {

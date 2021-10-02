@@ -19,14 +19,13 @@ public class ResettableArenas extends JavaPlugin {
 
     public ResettableArenas() {
         instance = this;
-        database = new SQLite();
-        database.load();
     }
 
     @Override
     public void onEnable() {
-        instance = this;
         this.getDataFolder().mkdirs();
+        database = new SQLite();
+        database.load();
         this.getCommand("arena").setExecutor(new ArenaCommandExecutor(this));
         this.getServer().getPluginManager().registerEvents(new WorldListener(), this);
 

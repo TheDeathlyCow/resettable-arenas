@@ -8,11 +8,11 @@ package com.github.thedeathlycow.resettablearenas.database;
 import com.github.thedeathlycow.resettablearenas.Arena;
 import com.github.thedeathlycow.resettablearenas.ArenaChunk;
 import com.github.thedeathlycow.resettablearenas.ResettableArenas;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.ChunkSnapshot;
+import org.bukkit.World;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -39,72 +39,58 @@ public abstract class Database {
 
     protected void initialize() {
         dbConnection = getSQLConnection();
-        PreparedStatement arenaStatement = null;
-        ResultSet arenaResultSet = null;
-        PreparedStatement arenaChnkStatement = null;
-        ResultSet arenaChnkResultSet = null;
-        try {
-            arenaStatement = dbConnection.prepareStatement("SELECT * FROM " + arenasTable + ";");
-            arenaResultSet = arenaStatement.executeQuery();
-
-            arenaChnkStatement = dbConnection.prepareStatement("SELECT * FROM " + arenaChunksTable + ";");
-            arenaChnkResultSet = arenaStatement.executeQuery();
+        try (PreparedStatement arenaStatement = dbConnection.prepareStatement("SELECT * FROM " + arenasTable + ";");
+             PreparedStatement arenaChnkStatement = dbConnection.prepareStatement("SELECT * FROM " + arenaChunksTable + ";");) {
+            try (ResultSet arenaResultSet = arenaStatement.executeQuery()) {
+                plugin.getLogger().log(Level.FINE, "Arena table is working.");
+            }
+            try (ResultSet arenaChnkResultSet = arenaStatement.executeQuery()) {
+                plugin.getLogger().log(Level.FINE, "Arena chunk table is working.");
+            }
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, "Unable to retrieve connection", ex);
-        } finally {
-            close(arenaStatement, arenaResultSet);
-            close(arenaChnkStatement, arenaChnkResultSet);
         }
     }
 
     public List<Arena> getAllArenas() {
         List<Arena> result = new ArrayList<>();
-        Connection conn = getSQLConnection();
-        PreparedStatement statement = null;
-        ResultSet resultSet = null;
         String query = "SELECT * FROM " + arenasTable + ";";
-        try {
-            statement = conn.prepareStatement(query);
-            resultSet = statement.executeQuery();
-            while (resultSet.next()) {
-                String resultName = resultSet.getString("arenaName");
-                Arena arena = new Arena(resultName);
-                arena.setSaveVersion(resultSet.getInt("saveVer"));
-                arena.setLoadVersion(resultSet.getInt("loadVer"));
-                result.add(arena);
+        try (Connection connection = getSQLConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String resultName = resultSet.getString("arenaName");
+                    Arena arena = new Arena(resultName);
+                    arena.setSaveVersion(resultSet.getInt("saveVer"), false);
+                    arena.setLoadVersion(resultSet.getInt("loadVer"), false);
+                    result.add(arena);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Unable to process query", e);
-        } finally {
-            close(conn, statement, resultSet);
         }
         return result;
     }
 
     public List<ArenaChunk> getAllChunks(Arena parentArena) {
         List<ArenaChunk> result = new ArrayList<>();
-        Connection conn = getSQLConnection();
-        PreparedStatement statement = null;
-        ResultSet resultSet = null;
         String query = "SELECT * FROM " + arenaChunksTable +
                 " WHERE arenaName = '" + parentArena.getName() + "';";
-        try {
-            statement = conn.prepareStatement(query);
-            resultSet = statement.executeQuery();
-            while (resultSet.next()) {
-                int posX = resultSet.getInt("posX");
-                int posZ = resultSet.getInt("posZ");
-                World world = Bukkit.getWorld(resultSet.getString("worldName"));
-                ChunkSnapshot chunk = world.getEmptyChunkSnapshot(posX, posZ, false, false);
-                ArenaChunk arenaChunk = new ArenaChunk(parentArena, chunk);
-                arenaChunk.setSaveVersion(resultSet.getInt("saveVer"));
-                arenaChunk.setLoadVersion(resultSet.getInt("loadVer"));
-                result.add(arenaChunk);
+        try (PreparedStatement statement = dbConnection.prepareStatement(query)) {
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    int posX = resultSet.getInt("posX");
+                    int posZ = resultSet.getInt("posZ");
+                    World world = Bukkit.getWorld(resultSet.getString("worldName"));
+                    ChunkSnapshot chunk = world.getEmptyChunkSnapshot(posX, posZ, false, false);
+                    ArenaChunk arenaChunk = new ArenaChunk(parentArena, chunk);
+                    arenaChunk.setSaveVersion(resultSet.getInt("saveVer"));
+                    arenaChunk.setLoadVersion(resultSet.getInt("loadVer"));
+                    result.add(arenaChunk);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Unable to process query", e);
-        } finally {
-            close(conn, statement, resultSet);
         }
         return result;
     }
@@ -112,34 +98,27 @@ public abstract class Database {
 
     @Nullable
     public Arena getArena(String arenaName) {
-        Connection conn = getSQLConnection();
-        ResultSet resultSet = null;
         String query = "SELECT * FROM " + arenasTable + " WHERE arenaName = '" + arenaName + "';";
-        Arena resultArena = null;
-        try (PreparedStatement statement = conn.prepareStatement(query)) {
-            resultSet = statement.executeQuery();
-            while (resultSet.next()) {
-                String resultName = resultSet.getString("arenaName");
-                if (resultName.equals(arenaName)) {
-                    System.out.println("Found arena '" + resultName + "'");
-                    resultArena = new Arena(resultName);
-                    resultArena.setSaveVersion(resultSet.getInt("saveVer"));
-                    resultArena.setLoadVersion(resultSet.getInt("loadVer"));
-                    break;
+        try (PreparedStatement statement = dbConnection.prepareStatement(query)) {
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String resultName = resultSet.getString("arenaName");
+                    if (resultName.equals(arenaName)) {
+                        Arena resultArena = new Arena(resultName);
+                        resultArena.setSaveVersion(resultSet.getInt("saveVer"), false);
+                        resultArena.setLoadVersion(resultSet.getInt("loadVer"), false);
+                        return resultArena;
+                    }
                 }
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), e);
-        } finally {
-            close(conn, resultSet);
         }
-        return resultArena;
+        return null;
     }
 
     @Nullable
     public ArenaChunk getArenaChunk(ChunkSnapshot snapshot) {
-        Connection conn = getSQLConnection();
-        ResultSet result = null;
         String worldName = snapshot.getWorldName();
         int posX = snapshot.getX();
         int posZ = snapshot.getZ();
@@ -148,54 +127,45 @@ public abstract class Database {
                 " AND posX = " + posX +
                 " AND posZ = " + posZ + ";";
 
-        ArenaChunk found = null;
-        try (PreparedStatement statement = conn.prepareStatement(query)){
-            result = statement.executeQuery();
-            while (result.next()) {
-                String resWorldName = result.getString("worldName");
-                int resX = result.getInt("posX");
-                int resZ = result.getInt("posZ");
-                int saveVer = result.getInt("saveVer");
-                int loadVer = result.getInt("loadVer");
-                if (resWorldName.equals(worldName)
-                        && resX == posX
-                        && resZ == posZ) {
-                    String arenaName = result.getString("arenaName");
-                    Arena parentArena = getArena(arenaName);
-                    if (parentArena != null) {
-                        found = new ArenaChunk(parentArena, snapshot);
-                        System.out.println("Found arena chunk '" + found.toString() + "'");
-                        found.setSaveVersion(saveVer);
-                        found.setLoadVersion(loadVer);
-
-                        break;
+        try (PreparedStatement statement = dbConnection.prepareStatement(query)) {
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    String resWorldName = result.getString("worldName");
+                    int resX = result.getInt("posX");
+                    int resZ = result.getInt("posZ");
+                    int saveVer = result.getInt("saveVer");
+                    int loadVer = result.getInt("loadVer");
+                    if (resWorldName.equals(worldName)
+                            && resX == posX
+                            && resZ == posZ) {
+                        String arenaName = result.getString("arenaName");
+                        Arena parentArena = getArena(arenaName);
+                        if (parentArena != null) {
+                            ArenaChunk found = new ArenaChunk(parentArena, snapshot);
+                            found.setSaveVersion(saveVer);
+                            found.setLoadVersion(loadVer);
+                            return found;
+                        }
                     }
                 }
             }
         } catch (SQLException ex) {
-//            ResettableArenas.getInstance().getServer().broadcastMessage(ChatColor.RED + "Error: " + ex.getMessage() + "\n" +
-//                    query);
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);
-        } finally {
-            close(conn, result);
         }
-        return found;
+        return null;
     }
 
     public void updateArena(Arena arena, String col, int value) throws SQLException {
-        Connection connection = getSQLConnection();
         SQLException exception = null;
         String query = "UPDATE " + arenasTable +
                 " SET " + col + " = " + value +
                 " WHERE arenaName = '" + arena.getName() + "';";
-        try (PreparedStatement ps = connection.prepareStatement(query)) {
+        try (PreparedStatement ps = dbConnection.prepareStatement(query)) {
             ps.executeUpdate();
         } catch (SQLException e) {
             System.out.println(query);
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), e);
             exception = e;
-        } finally {
-            close(connection);
         }
 
         if (exception != null) {
@@ -204,29 +174,23 @@ public abstract class Database {
     }
 
     public void updateChunk(ArenaChunk arenaChunk, String col, int value) {
-        Connection connection = getSQLConnection();
         String query = "UPDATE " + arenaChunksTable +
                 " SET " + col + " = " + value +
                 " WHERE worldName = '" + arenaChunk.getWorldname() + "' AND " +
                 " posX = " + arenaChunk.getPosX() + " AND " +
                 " posZ = " + arenaChunk.getPosZ() + ";";
-        try (PreparedStatement ps = connection.prepareStatement(query)) {
+        try (PreparedStatement ps = dbConnection.prepareStatement(query)) {
             ps.executeUpdate();
         } catch (SQLException e) {
             System.out.println(query);
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), e);
-        } finally {
-            close(connection);
         }
     }
 
     public void addArena(Arena arena) throws SQLException {
-        Connection conn = null;
-        PreparedStatement ps = null;
         SQLException exception = null;
-        try {
-            conn = getSQLConnection();
-            ps = conn.prepareStatement("REPLACE INTO " + arenasTable + " (arenaName, saveVer, loadVer) VALUES (?, ?, ?)");
+        String query = "REPLACE INTO " + arenasTable + " (arenaName, saveVer, loadVer) VALUES (?, ?, ?)";
+        try (PreparedStatement ps = dbConnection.prepareStatement(query)) {
             ps.setString(1, arena.getName());
             ps.setInt(2, arena.getSaveVersion());
             ps.setInt(3, arena.getLoadVersion());
@@ -234,8 +198,6 @@ public abstract class Database {
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);
             exception = ex;
-        } finally {
-            close(ps, conn);
         }
         if (exception != null) {
             throw exception;
@@ -243,13 +205,9 @@ public abstract class Database {
     }
 
     public void addArenaChunk(ArenaChunk chunk) {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        try {
-            conn = getSQLConnection();
-            ps = conn.prepareStatement("REPLACE INTO " +
-                    arenaChunksTable +
-                    " (worldName, posX, posZ, saveVer, loadVer, arenaName) VALUES (?, ?, ?, ?, ?, ?)");
+        String query = "REPLACE INTO " + arenaChunksTable +
+                " (worldName, posX, posZ, saveVer, loadVer, arenaName) VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = dbConnection.prepareStatement(query)) {
             ps.setString(1, chunk.getWorldname());
             ps.setInt(2, chunk.getPosX());
             ps.setInt(3, chunk.getPosZ());
@@ -259,8 +217,6 @@ public abstract class Database {
             ps.executeUpdate();
         } catch (SQLException ex) {
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);
-        } finally {
-            close(ps, conn);
         }
     }
 
@@ -278,7 +234,9 @@ public abstract class Database {
 
     public void onDisable() {
         try {
-            this.dbConnection.close();
+            if (this.dbConnection != null) {
+                this.dbConnection.close();
+            }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, Errors.sqlConnectionClose(), e);
         }

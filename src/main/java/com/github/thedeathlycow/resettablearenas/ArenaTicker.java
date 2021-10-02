@@ -22,13 +22,14 @@ public class ArenaTicker implements Runnable {
     @Override
     public void run() {
         List<Arena> arenas = DATABASE.getAllArenas(); // database query
-
         for (Arena arena : arenas) {
             List<ArenaChunk> chunks = DATABASE.getAllChunks(arena); // nother database query
-
-            // non threadsafe calls to bukkit api
+            // non threadsafe calls to bukkit api - put back on main thread
             Bukkit.getScheduler().scheduleSyncDelayedTask(
-                    PLUGIN, () -> chunks.forEach((chunk) -> chunk.tick(DATABASE))
+                    PLUGIN, () -> {
+                        arena.checkScoreboard();
+                        chunks.forEach(ArenaChunk::tick);
+                    }, 1 // small delay
             );
         }
     }
