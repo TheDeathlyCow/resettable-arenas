@@ -4,16 +4,22 @@ import com.github.thedeathlycow.resettablearenas.commands.ArenaCommandExecutor;
 import com.github.thedeathlycow.resettablearenas.database.Database;
 import com.github.thedeathlycow.resettablearenas.database.SQLite;
 import com.github.thedeathlycow.resettablearenas.listeners.WorldListener;
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+
+import java.util.UUID;
 
 public class ResettableArenas extends JavaPlugin {
 
     public static final String NAME = "Resettable-Arenas";
 
     private static ResettableArenas instance;
+    private static Player dummy;
+    private static com.sk89q.worldedit.entity.Player dummyWE;
     private Database database;
     private BukkitTask checker;
 

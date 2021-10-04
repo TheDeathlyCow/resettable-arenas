@@ -28,7 +28,14 @@ public class ChunkWrapper {
 
     public Chunk getChunk() {
         World world = Bukkit.getWorld(worldName);
+        assert world != null;
         return world.getChunkAt(location);
+    }
+
+    public boolean isLoaded() {
+        World world = Bukkit.getWorld(worldName);
+        assert world != null;
+        return world.isChunkLoaded(snapshot.getX(), snapshot.getZ());
     }
 
     public ChunkSnapshot getSnapshot() {

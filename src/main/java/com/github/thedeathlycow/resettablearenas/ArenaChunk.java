@@ -1,5 +1,7 @@
 package com.github.thedeathlycow.resettablearenas;
 
+import com.fastasyncworldedit.core.FaweAPI;
+import com.fastasyncworldedit.core.util.EditSessionBuilder;
 import com.github.thedeathlycow.resettablearenas.database.Database;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
@@ -13,20 +15,18 @@ import com.sk89q.worldedit.function.operation.Operation;
 import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
+import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.session.ClipboardHolder;
+import com.sk89q.worldedit.world.World;
 import org.bukkit.*;
 import org.bukkit.entity.*;
-import org.bukkit.scoreboard.Scoreboard;
 
 import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * An arena chunk is a chunk that is part of an arena. Each arena chunk may
@@ -86,8 +86,7 @@ public class ArenaChunk {
     }
 
     public void tick() {
-        Chunk chunk = CHUNK.getChunk();
-        if (chunk.isLoaded()) {
+        if (CHUNK.isLoaded()) {
             boolean saved = false;
             boolean loaded = false;
             if (this.saveVersion != arena.getSaveVersion()) {
@@ -124,14 +123,15 @@ public class ArenaChunk {
         final BlockVector3 min = BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16);
         final BlockVector3 max = BlockVector3.at(chunk.getX() * 16 + 15, 255, chunk.getZ() * 16 + 15);
 
-        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(Bukkit.getWorld(chunk.getWorldName()));
-        CuboidRegion region = new CuboidRegion(adaptedWorld, min, max);
+        World world = FaweAPI.getWorld(chunk.getWorldName());
+        Region region = new CuboidRegion(world, min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
 
-        try (EditSession session = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1)) {
+        try (EditSession session = new EditSessionBuilder(world).changeSetNull().fastmode(true).build()) {
             ForwardExtentCopy copy = new ForwardExtentCopy(session, region, clipboard, region.getMinimumPoint());
             copy.setCopyingEntities(false);
             Operations.complete(copy);
+            Operations.complete(clipboard.commit());
         } catch (WorldEditException e) {
             e.printStackTrace();
             sendErrorMessage("Error " + e + " while copying " + this.toString());
@@ -170,15 +170,16 @@ public class ArenaChunk {
         clearChunkEntities();
 
         // paste clipboard
-        Chunk chunk = CHUNK.getChunk();
-        com.sk89q.worldedit.world.World adaptedWorld = BukkitAdapter.adapt(chunk.getWorld());
-        try (EditSession editSession = WorldEdit.getInstance().getEditSessionFactory().getEditSession(adaptedWorld, -1)) {
+        ChunkSnapshot chunk = CHUNK.getSnapshot();
+        World world = FaweAPI.getWorld(chunk.getWorldName());
+        try (EditSession session = new EditSessionBuilder(world).changeSetNull().fastmode(true).build()) {
             Operation operation = new ClipboardHolder(clipboard)
-                    .createPaste(editSession)
+                    .createPaste(session)
                     .to(BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16))
                     .ignoreAirBlocks(false)
                     .build();
             Operations.complete(operation);
+            Operations.complete(clipboard.commit());
         } catch (WorldEditException e) {
             e.printStackTrace();
             sendErrorMessage("Error pasting schematic: " + e + " for " + this.toString());
@@ -209,9 +210,8 @@ public class ArenaChunk {
         for (Entity entity : CHUNK.getChunk().getEntities()) {
             if (entity instanceof Player) {
                 checkPlayer((Player) entity);
-            } else if (!(entity instanceof Marker
-                    || entity instanceof Hanging
-                    || entity instanceof ArmorStand)) {
+            } else if (entity instanceof LivingEntity
+                    && !(entity instanceof ArmorStand)) {
                 Location location = entity.getLocation();
                 entity.teleport(location.add(0, -1000, 0));
             }
