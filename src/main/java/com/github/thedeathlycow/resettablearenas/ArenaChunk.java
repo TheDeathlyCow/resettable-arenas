@@ -210,8 +210,8 @@ public class ArenaChunk {
         for (Entity entity : CHUNK.getChunk().getEntities()) {
             if (entity instanceof Player) {
                 checkPlayer((Player) entity);
-            } else if (entity instanceof LivingEntity
-                    && !(entity instanceof ArmorStand)) {
+            } else if ((entity instanceof Item) || (entity instanceof LivingEntity
+                    && !(entity instanceof ArmorStand))) {
                 Location location = entity.getLocation();
                 entity.teleport(location.add(0, -1000, 0));
             }
