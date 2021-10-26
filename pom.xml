@@ -6,7 +6,7 @@
 
     <groupId>com.github.thedeathlycow</groupId>
     <artifactId>resettable-arenas</artifactId>
-    <version>beta-2.0</version>
+    <version>beta-2.1</version>
     <packaging>jar</packaging>
 
     <name>Resettable Arenas</name>
