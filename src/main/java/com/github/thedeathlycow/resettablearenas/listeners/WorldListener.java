@@ -7,6 +7,7 @@ import org.bukkit.ChunkSnapshot;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 
@@ -20,7 +21,7 @@ public class WorldListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerLogin(PlayerLoginEvent event) {
+    public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         for (String tag : player.getScoreboardTags()) {
             if (tag.startsWith(PLAYING_PREFIX)) {
