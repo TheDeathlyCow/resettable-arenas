@@ -1,12 +1,10 @@
 package com.github.thedeathlycow.resettablearenas;
 
 import com.fastasyncworldedit.core.FaweAPI;
-import com.fastasyncworldedit.core.util.EditSessionBuilder;
 import com.github.thedeathlycow.resettablearenas.database.Database;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.WorldEditException;
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extent.clipboard.BlockArrayClipboard;
 import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.extent.clipboard.io.*;
@@ -27,6 +25,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.logging.Level;
 
 /**
  * An arena chunk is a chunk that is part of an arena. Each arena chunk may
@@ -117,24 +116,25 @@ public class ArenaChunk {
      * Saves the current state of the chunk to a schematic.
      */
     public void save() {
-        System.out.println("Saving " + this.toString());
+        System.out.println("Saving " + this);
         this.saveVersion = arena.getSaveVersion();
         ChunkSnapshot chunk = CHUNK.getSnapshot();
-        final BlockVector3 min = BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16);
-        final BlockVector3 max = BlockVector3.at(chunk.getX() * 16 + 15, 255, chunk.getZ() * 16 + 15);
+        final BlockVector3 min = BlockVector3.at(chunk.getX() * 16, -64, chunk.getZ() * 16);
+        final BlockVector3 max = BlockVector3.at(chunk.getX() * 16 + 15, 319, chunk.getZ() * 16 + 15);
 
         World world = FaweAPI.getWorld(chunk.getWorldName());
-        Region region = new CuboidRegion(world, min, max);
+        Region region = new CuboidRegion(min, max);
         BlockArrayClipboard clipboard = new BlockArrayClipboard(region);
 
-        try (EditSession session = new EditSessionBuilder(world).changeSetNull().fastmode(true).build()) {
+        try (EditSession session = WorldEdit.getInstance().newEditSessionBuilder()
+                .world(world).changeSetNull().fastMode(true).build()) {
             ForwardExtentCopy copy = new ForwardExtentCopy(session, region, clipboard, region.getMinimumPoint());
             copy.setCopyingEntities(false);
             Operations.complete(copy);
             Operations.complete(clipboard.commit());
         } catch (WorldEditException e) {
             e.printStackTrace();
-            sendErrorMessage("Error " + e + " while copying " + this.toString());
+            sendErrorMessage("Error " + e + " while copying " + this);
         }
 
         try (ClipboardWriter writer = BuiltInClipboardFormat.SPONGE_SCHEMATIC.getWriter(new FileOutputStream(SCHEMATIC))) {
@@ -149,40 +149,52 @@ public class ArenaChunk {
      * Loads this arena chunk from its last saved state, if that state exists.
      */
     public void load() {
-        System.out.println("Loading " + this.toString());
+        System.out.println("Loading " + this);
         this.loadVersion = arena.getLoadVersion(); // stop trying to load if this load fails
         if (!SCHEMATIC.exists()) {
             return;
         }
         // load clipboard
-        Clipboard clipboard;
+        Clipboard clipboard = null;
         ClipboardFormat clipboardFormat = ClipboardFormats.findByFile(this.SCHEMATIC);
-        try (ClipboardReader reader = clipboardFormat.getReader(new FileInputStream(this.SCHEMATIC))) {
-            clipboard = reader.read();
+        try {
+            assert clipboardFormat != null;
+            try (ClipboardReader reader = clipboardFormat.getReader(new FileInputStream(this.SCHEMATIC))) {
+                clipboard = reader.read();
+            }
         } catch (IOException | NullPointerException e) {
             e.printStackTrace();
             sendErrorMessage("Error loading schematic file: " + this.SCHEMATIC.getAbsolutePath()
-                    + "in chunk " + this.toString());
+                    + "in chunk " + this);
+        }
+
+        if (clipboard == null) {
             return;
         }
+
 
         // remove players and other entities
         clearChunkEntities();
 
+        // new EditSessionBuilder(world).changeSetNull().fastmode(true).build()
+
         // paste clipboard
         ChunkSnapshot chunk = CHUNK.getSnapshot();
+        BlockVector3 pos = BlockVector3.at(chunk.getX() * 16, -64, chunk.getZ() * 16);
         World world = FaweAPI.getWorld(chunk.getWorldName());
-        try (EditSession session = new EditSessionBuilder(world).changeSetNull().fastmode(true).build()) {
+        clipboard.setOrigin(pos);
+        try (EditSession session = WorldEdit.getInstance().newEditSessionBuilder()
+                .world(world).changeSetNull().fastMode(true).build()) {
             Operation operation = new ClipboardHolder(clipboard)
                     .createPaste(session)
-                    .to(BlockVector3.at(chunk.getX() * 16, 0, chunk.getZ() * 16))
+                    .to(pos)
                     .ignoreAirBlocks(false)
                     .build();
             Operations.complete(operation);
             Operations.complete(clipboard.commit());
         } catch (WorldEditException e) {
             e.printStackTrace();
-            sendErrorMessage("Error pasting schematic: " + e + " for " + this.toString());
+            sendErrorMessage("Error pasting schematic: " + e + " for " + this);
         }
     }
 
@@ -273,6 +285,7 @@ public class ArenaChunk {
 
     private void sendErrorMessage(String message) {
         PLUGIN.getServer().broadcastMessage(ChatColor.RED + "[ResettableArenas] ERROR: " + message);
+        Bukkit.getLogger().log(Level.SEVERE, message);
     }
 
 }

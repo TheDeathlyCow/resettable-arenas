@@ -7,7 +7,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -26,7 +25,7 @@ public class ArenaCommandExecutor implements CommandExecutor {
             sender.sendMessage(ChatColor.RED + "Error: No subcommand specified!");
             return false;
         }
-        SubCommand subCommand = SubCommandRegistry.getCommand(args[0]);
+        SubCommand subCommand = SubCommands.getCommand(args[0]);
 
         if (subCommand == null) {
             sender.sendMessage(ChatColor.RED + "Error: Invalid command specified.");

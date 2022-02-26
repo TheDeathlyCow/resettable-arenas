@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SubCommandRegistry {
+public class SubCommands {
 
     private static final Map<String, SubCommand> COMMANDS = new HashMap<>();
 

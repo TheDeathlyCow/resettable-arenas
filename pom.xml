@@ -6,7 +6,7 @@
 
     <groupId>com.github.thedeathlycow</groupId>
     <artifactId>resettable-arenas</artifactId>
-    <version>beta-2.1</version>
+    <version>beta-2.2</version>
     <packaging>jar</packaging>
 
     <name>Resettable Arenas</name>
@@ -66,49 +66,38 @@
             <id>enginehub-maven</id>
             <url>https://maven.enginehub.org/repo/</url>
         </repository>
-        <!-- FAWE -->
-        <repository>
-            <id>IntellectualSites</id>
-            <url>https://mvn.intellectualsites.com/content/groups/public/</url>
-        </repository>
     </repositories>
 
     <dependencies>
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.17.1-R0.1-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
-        <!-- This depends on the Bukkit API, Use this if you need BukkitAdapter -->
-        <dependency>
-            <groupId>com.sk89q.worldedit</groupId>
-            <artifactId>worldedit-bukkit</artifactId>
-            <version>7.3.0-SNAPSHOT</version>
+            <version>1.18.1-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 
-        <!-- This doesn't depend on any platform -->
-        <dependency>
-            <groupId>com.sk89q.worldedit</groupId>
-            <artifactId>worldedit-core</artifactId>
-            <version>7.3.0-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
         <!-- FAWE Core API -->
         <dependency>
             <groupId>com.fastasyncworldedit</groupId>
-            <artifactId>FAWE-Core</artifactId>
-            <version>1.17-93</version>
+            <artifactId>FastAsyncWorldEdit-Core</artifactId>
+            <version>2.0.1</version>
             <scope>provided</scope>
         </dependency>
-        <!-- FAWE API -->
+
+        <!-- FAWE Bukkit API -->
         <dependency>
             <groupId>com.fastasyncworldedit</groupId>
-            <artifactId>FAWE-Bukkit</artifactId>
-            <version>1.17-93</version>
+            <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+            <version>2.0.1</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>FastAsyncWorldEdit-Core</artifactId>
+                    <groupId>*</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

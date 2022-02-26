@@ -7,9 +7,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nullable;
 import java.sql.SQLException;
-import java.util.List;
 
 public class CreateArena extends SubCommand {
 
@@ -27,7 +25,7 @@ public class CreateArena extends SubCommand {
             sender.sendMessage(ChatColor.RED + "Error adding arena: " + e);
             return false;
         }
-        sender.sendMessage(ChatColor.GREEN + "Successfully created arena" + arena.getName());
+        sender.sendMessage(ChatColor.GREEN + "Successfully created arena " + arena.getName());
         return true;
     }
 }
